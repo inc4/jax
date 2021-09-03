@@ -1,11 +1,11 @@
 package mining
 
 import (
-	"log"
 	"context"
-	"time"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
+	"log"
+	"time"
 )
 
 const getTemplateInverval = time.Second
@@ -24,9 +24,9 @@ func NewRPCClient(config *Config) (*RPCClient, error) {
 	}
 	return &RPCClient{
 		config: config,
-		rpc: rpc,
+		rpc:    rpc,
 		shards: make(map[uint32]context.CancelFunc),
-		log: log.Default(),
+		log:    log.Default(),
 	}, nil
 }
 
@@ -95,13 +95,13 @@ func jaxRPCConfig(address string) *rpcclient.ConnConfig {
 	_ = address
 	// TODO
 	return &rpcclient.ConnConfig{
-		Host: "128.199.64.36:18333",
+		Host:     "128.199.64.36:18333",
 		Endpoint: "ws",
-		Params: "testnet",
-		User: "jaxnetrpc",
-		Pass: "AUL6VBjoQnhP3bfFzl",
+		Params:   "testnet",
+		User:     "jaxnetrpc",
+		Pass:     "AUL6VBjoQnhP3bfFzl",
 		// ShardID: 1,
 		HTTPPostMode: true,
-		DisableTLS: true,
+		DisableTLS:   true,
 	}
 }
