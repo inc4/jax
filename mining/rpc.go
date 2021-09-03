@@ -5,6 +5,7 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
+	"net/url"
 	"time"
 )
 
@@ -92,15 +93,15 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 }
 
 func jaxRPCConfig(address string) *rpcclient.ConnConfig {
-	_ = address
-	// TODO
+	params, _ := url.Parse(address)
+	user := params.User.Username()
+	pass, _ := params.User.Password()
 	return &rpcclient.ConnConfig{
-		Host:     "128.199.64.36:18333",
-		Endpoint: "ws",
-		Params:   "testnet",
-		User:     "jaxnetrpc",
-		Pass:     "AUL6VBjoQnhP3bfFzl",
-		// ShardID: 1,
+		Host:         params.Host,
+		Endpoint:     "ws",
+		Params:       "testnet",
+		User:         user,
+		Pass:         pass,
 		HTTPPostMode: true,
 		DisableTLS:   true,
 	}
