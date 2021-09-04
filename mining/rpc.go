@@ -83,12 +83,16 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		return
 	}
 
-	params := &jaxjson.TemplateRequest{}
+	params := &jaxjson.TemplateRequest{
+		Capabilities: []string{
+			"coinbasetxn",
+		},
+	}
 	for {
 		template, err := rpc.GetBeaconBlockTemplate(params)
 		if err == nil {
 			params.LongPollID = template.LongPollID
-			log.Println("beacon", template.Height)
+			c.log.Println("beacon", template.Height)
 			c.job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
@@ -106,7 +110,11 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 		return
 	}
 
-	params := &jaxjson.TemplateRequest{}
+	params := &jaxjson.TemplateRequest{
+		Capabilities: []string{
+			"coinbasetxn",
+		},
+	}
 	for {
 		ch := GetShardBlockTemplateAsync(rpc, params)
 		select {
@@ -114,7 +122,7 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 			if r.err == nil {
 				template := r.result
 				params.LongPollID = template.LongPollID
-				log.Println("shard", id, template.Height)
+				c.log.Println("shard", id, template.Height)
 				c.job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
