@@ -55,9 +55,32 @@ func (c *RPCClient) fetchShards() {
 }
 
 func (c *RPCClient) Do() {
+	go c.fetchBeaconTemplate()
 	for {
 		c.fetchShards()
 		time.Sleep(1)
+	}
+}
+
+func (c *RPCClient) fetchBeaconTemplate() {
+	clientConfig := jaxRPCConfig(c.config.serverAddress)
+	rpc, err := rpcclient.New(clientConfig, nil)
+	if err != nil {
+		c.log.Println("ERR", err)
+		return
+	}
+
+	params := &jaxjson.TemplateRequest{}
+	for {
+		template, err := rpc.GetBeaconBlockTemplate(params)
+		if err == nil {
+			params.LongPollID = template.LongPollID
+			log.Println("beacon", template.Height)
+			// TODO job.update(template)
+		} else {
+			c.log.Println("ERR", err)
+			time.Sleep(getTemplateInverval)
+		}
 	}
 }
 
@@ -66,7 +89,6 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 	clientConfig.ShardID = id
 	rpc, err := rpcclient.New(clientConfig, nil)
 	if err != nil {
-		// TODO should we return here?
 		c.log.Println("ERR", err)
 		return
 	}
