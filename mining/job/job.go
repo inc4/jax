@@ -9,6 +9,7 @@ package job
 import (
 	btcdjson "github.com/btcsuite/btcd/btcjson"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
+	"gitlab.com/jaxnet/jaxnetd/node/mining"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
 	"math/big"
@@ -184,6 +185,21 @@ func (h *Job) ProcessBitcoinTemplate(template *btcdjson.GetBlockTemplateResult) 
 	h.BitcoinBlockTarget = target
 
 	h.BitcoinBlock, _ = utils.UpdateBitcoinExtraNonce(h.BitcoinBlock, h.BitcoinBlockHeight, 0x00, h.BeaconHash[:])
+}
+
+func (h *Job) GetBitcoinCoinbase(reward, fee, height int64) (*btcdwire.MsgTx, error) {
+	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(reward, fee, int32(height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
+	if err != nil {
+		return nil, err
+	}
+	coinbaseTx := utils.JaxTxToBtcTx(jaxCoinbaseTx.MsgTx())
+
+	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(height, utils.PackUint64LE(0x00), h.BeaconHash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	return &coinbaseTx, err
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {

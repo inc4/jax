@@ -1,6 +1,10 @@
 package mining
 
 import (
+	"github.com/inc4/jax/mining/job"
+	"github.com/inc4/jax/mining/test"
+	"github.com/stretchr/testify/assert"
+	"gitlab.com/jaxnet/core/miner/core/common"
 	"testing"
 	"time"
 )
@@ -17,7 +21,25 @@ func TestXXX(t *testing.T) {
 	}
 	go client.Do()
 	for {
-		time.Sleep(1)
+		time.Sleep(time.Second)
 		t.Log(client.job)
 	}
+}
+
+func TestCoinbase(t *testing.T) {
+	jobConfig := &job.Configuration{
+		Shards:          make(map[common.ShardID]job.ShardConfig),
+		EnableBTCMining: true,
+	}
+	job := job.NewJob(jobConfig)
+	job.ProcessBitcoinTemplate(test.GetBtc())
+	cTx1 := job.BitcoinBlock.Transactions[0]
+
+	cTx2, err := job.GetBitcoinCoinbase(625540727, 666, 703687)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(cTx2.TxHash())
+	assert.Equal(t, cTx1.TxHash(), cTx2.TxHash())
 }
