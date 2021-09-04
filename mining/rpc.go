@@ -2,6 +2,8 @@ package mining
 
 import (
 	"context"
+	"gitlab.com/inc4/jax/mining/job"
+	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
@@ -14,6 +16,7 @@ const getTemplateInverval = time.Second
 type RPCClient struct {
 	config *Config
 	rpc    *rpcclient.Client
+	job    *job.Job
 	shards map[uint32]context.CancelFunc
 	log    *log.Logger
 }
@@ -23,9 +26,19 @@ func NewRPCClient(config *Config) (*RPCClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	jobConfig := &job.Configuration{
+		Shards:           make(map[common.ShardID]job.ShardConfig),
+		EnableBTCMining:  true,
+		BurnBtcReward:    false,
+		BurnJaxReward:    false,
+		BurnJaxNetReward: false,
+		BtcMiningAddress: nil,
+		JaxMiningAddress: nil,
+	}
 	return &RPCClient{
 		config: config,
 		rpc:    rpc,
+		job:    NewJob(),
 		shards: make(map[uint32]context.CancelFunc),
 		log:    log.Default(),
 	}, nil

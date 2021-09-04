@@ -42,11 +42,7 @@ type ShardConfig struct {
 }
 
 type Configuration struct {
-	Network struct {
-		Name   string
-		Shards map[common.ShardID]ShardConfig
-	}
-
+	Shards           map[common.ShardID]ShardConfig
 	EnableBTCMining  bool
 	BurnBtcReward    bool
 	BurnJaxReward    bool
@@ -99,7 +95,7 @@ func NewJob(config *Configuration) *Job {
 	return &Job{config: config}
 }
 
-func (h *Job) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
+func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -110,7 +106,7 @@ func (h *Job) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResul
 	}
 
 	// todo: add the sme deduplication mechanics as was added for beacon block.
-	//		 (see processBeaconCandidate() method for the details)
+	//		 (see processBeaconTemplate() method for the details)
 
 	shardRecord, isPresent := h.shards[shardID]
 	if !isPresent {
@@ -139,7 +135,7 @@ func (h *Job) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResul
 
 }
 
-func (h *Job) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
+func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -169,7 +165,7 @@ func (h *Job) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateRes
 	}
 }
 
-func (h *Job) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
+func (h *Job) ProcessBitcoinTemplate(template *btcdjson.GetBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -188,7 +184,7 @@ func (h *Job) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplateResult)
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {
-	knownShardsCount := len(h.config.Network.Shards)
+	knownShardsCount := len(h.config.Shards)
 	fetchedShardsCount := len(h.ShardsTargets)
 
 	if knownShardsCount == 0 || fetchedShardsCount == 0 {
