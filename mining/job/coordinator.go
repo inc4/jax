@@ -7,7 +7,9 @@
 package job
 
 import (
+	btcdjson "github.com/btcsuite/btcd/btcjson"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
+	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
 	"math/big"
 	"sort"
@@ -17,7 +19,6 @@ import (
 
 	mm "gitlab.com/jaxnet/core/merged-mining-tree"
 	"gitlab.com/jaxnet/core/miner/core/common"
-	"gitlab.com/jaxnet/core/miner/core/communicator/events"
 	"gitlab.com/jaxnet/core/miner/core/utils"
 
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
@@ -94,13 +95,11 @@ type Coordinator struct {
 	lastExtraNonce *uint64
 }
 
-func (h *Coordinator) processShardCandidate(e events.ShardBlockCandidate) {
+func (h *Coordinator) processShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
 	h.Lock()
 	defer h.Unlock()
 
-	shardID := e.ShardID
-
-	block, target, height, err := h.decodeShardBlockTemplateResponse(e.Candidate)
+	block, target, height, err := h.decodeShardBlockTemplateResponse(template)
 	if err != nil {
 		log.Println("Can't decode shard block template response", err)
 		return
@@ -136,11 +135,11 @@ func (h *Coordinator) processShardCandidate(e events.ShardBlockCandidate) {
 
 }
 
-func (h *Coordinator) processBeaconCandidate(event events.BeaconBlockCandidate) {
+func (h *Coordinator) processBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
-	block, target, height, err := h.decodeBeaconResponse(event.Candidate)
+	block, target, height, err := h.decodeBeaconResponse(template)
 	if err != nil {
 		log.Println("Can't decode beacon block template response")
 		return
@@ -166,11 +165,11 @@ func (h *Coordinator) processBeaconCandidate(event events.BeaconBlockCandidate) 
 	}
 }
 
-func (h *Coordinator) processBitcoinCandidate(event events.BitcoinBlockCandidate) {
+func (h *Coordinator) processBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
-	block, target, height, err := h.decodeBitcoinResponse(event.Candidate)
+	block, target, height, err := h.decodeBitcoinResponse(template)
 	if err != nil {
 		log.Println("Can't decode beacon block template response", err)
 		return
