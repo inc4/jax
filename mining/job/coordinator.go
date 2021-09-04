@@ -62,7 +62,7 @@ type ShardTask struct {
 	Target         *big.Int
 }
 
-type Coordinator struct {
+type Job struct {
 	utils.StoppableMixin
 	sync.Mutex
 
@@ -95,11 +95,11 @@ type Coordinator struct {
 	lastExtraNonce *uint64
 }
 
-func NewCoordinator(config *Configuration) *Coordinator {
-	return &Coordinator{config: config}
+func NewJob(config *Configuration) *Job {
+	return &Job{config: config}
 }
 
-func (h *Coordinator) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
+func (h *Job) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -139,7 +139,7 @@ func (h *Coordinator) ProcessShardCandidate(template *jaxjson.GetShardBlockTempl
 
 }
 
-func (h *Coordinator) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
+func (h *Job) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -169,7 +169,7 @@ func (h *Coordinator) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTem
 	}
 }
 
-func (h *Coordinator) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
+func (h *Job) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -187,7 +187,7 @@ func (h *Coordinator) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplat
 	h.BitcoinBlock, _ = utils.UpdateBitcoinExtraNonce(h.BitcoinBlock, h.BitcoinBlockHeight, 0x00, h.BeaconHash[:])
 }
 
-func (h *Coordinator) updateMergedMiningProof() (err error) {
+func (h *Job) updateMergedMiningProof() (err error) {
 	knownShardsCount := len(h.config.Network.Shards)
 	fetchedShardsCount := len(h.ShardsTargets)
 

@@ -49,7 +49,7 @@ var (
 	lastBCHeaderMutex sync.Mutex
 )
 
-func (h *Coordinator) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
+func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
 
 	// Block initialisation.
 	height = c.Height
@@ -108,7 +108,7 @@ func (h *Coordinator) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResu
 	return
 }
 
-func (h *Coordinator) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
+func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
 
 	if lastBCHeader == nil {
 		// No beacon block candidate has been fetched yet -> no beacon header is available.
@@ -155,7 +155,7 @@ func (h *Coordinator) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockT
 	return
 }
 
-func (h *Coordinator) decodeBitcoinResponse(c *btcdjson.GetBlockTemplateResult) (block *btcdwire.MsgBlock, target *big.Int, height int64, err error) {
+func (h *Job) decodeBitcoinResponse(c *btcdjson.GetBlockTemplateResult) (block *btcdwire.MsgBlock, target *big.Int, height int64, err error) {
 
 	// Block initialisation.
 	height = c.Height
