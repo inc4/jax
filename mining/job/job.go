@@ -92,7 +92,10 @@ type Job struct {
 }
 
 func NewJob(config *Configuration) *Job {
-	return &Job{config: config}
+	return &Job{
+		config: config,
+		shards: make(map[common.ShardID]*ShardTask),
+	}
 }
 
 func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
