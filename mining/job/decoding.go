@@ -15,18 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	btcdjson "github.com/btcsuite/btcd/btcjson"
-	btcdchainhash "github.com/btcsuite/btcd/chaincfg/chainhash"
-	btcdwire "github.com/btcsuite/btcd/wire"
-	btcdutil "github.com/btcsuite/btcutil"
-
 	"gitlab.com/jaxnet/core/miner/core/e"
-	"gitlab.com/jaxnet/core/miner/core/utils"
-
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/chaindata"
-	"gitlab.com/jaxnet/jaxnetd/node/mining"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
@@ -155,61 +146,6 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	return
 }
 
-func (h *Job) decodeBitcoinResponse(c *btcdjson.GetBlockTemplateResult) (block *btcdwire.MsgBlock, target *big.Int, height int64, err error) {
-
-	// Block initialisation.
-	height = c.Height
-
-	bitcoinBlock := btcdwire.MsgBlock{}
-	block = &bitcoinBlock
-
-	// Transactions processing.
-	var reward, fee int64
-	block.Transactions, reward, fee, err = unmarshalBitcoinTransactions(c.CoinbaseTxn, c.Transactions)
-	if err != nil {
-		return
-	}
-	if len(block.Transactions) == 0 {
-		block.Transactions = make([]*btcdwire.MsgTx, 1)
-	}
-
-	if c.CoinbaseValue != nil {
-		reward = *c.CoinbaseValue
-	}
-
-	var conbaseTx *jaxutil.Tx
-	conbaseTx, err = mining.CreateJaxCoinbaseTx(reward, fee, int32(height), 0,
-		h.config.BtcMiningAddress, h.config.BurnBtcReward)
-	if err != nil {
-		return
-	}
-	cTx := utils.JaxTxToBtcTx(conbaseTx.MsgTx())
-	block.Transactions[0] = &cTx
-
-	// Block header processing.
-	previousBlockHash, err := btcdchainhash.NewHashFromStr(c.PreviousHash)
-	if err != nil {
-		return
-	}
-
-	bits, err := unmarshalBits(c.Bits)
-	if err != nil {
-		return
-	}
-
-	targetBinary, err := hex.DecodeString(c.Target)
-	target = (&big.Int{}).SetBytes(targetBinary)
-	if err != nil {
-		return
-	}
-
-	newBlock := btcdutil.NewBlock(block)
-	merkles := blockchain.BuildMerkleTreeStore(newBlock.Transactions(), false)
-	block.Header = *btcdwire.NewBlockHeader(c.Version, previousBlockHash, merkles[len(merkles)-1], bits, fixtureNonce)
-
-	return
-}
-
 func unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
 
 	unmarshalTx := func(txHash string) (tx *wire.MsgTx, err error) {
@@ -241,48 +177,6 @@ func unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []j
 			return nil, err
 		}
 
-		transactions = append(transactions, tx)
-	}
-
-	return
-}
-
-func unmarshalBitcoinTransactions(coinbaseTx *btcdjson.GetBlockTemplateResultTx, txs []btcdjson.GetBlockTemplateResultTx) (transactions []*btcdwire.MsgTx, reward, fee int64, err error) {
-
-	unmarshalBitcoinTx := func(txHash string) (tx *btcdwire.MsgTx, err error) {
-		txBinary, err := hex.DecodeString(txHash)
-		if err != nil {
-			return
-		}
-
-		tx = &btcdwire.MsgTx{}
-		txReader := bytes.NewReader(txBinary)
-		err = tx.Deserialize(txReader)
-		return
-	}
-
-	transactions = make([]*btcdwire.MsgTx, 0, len(txs)+1)
-
-	// Coinbase transaction must be processed first.
-	// (transactions order in transactions slice is significant)
-	if coinbaseTx != nil {
-		cTX, err := unmarshalBitcoinTx(coinbaseTx.Data)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		for _, out := range cTX.TxOut {
-			reward += out.Value
-		}
-		transactions = append(transactions, cTX)
-	}
-
-	// Regular transactions processing.
-	for _, marshalledTx := range txs {
-		tx, err := unmarshalBitcoinTx(marshalledTx.Data)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		fee += marshalledTx.Fee
 		transactions = append(transactions, tx)
 	}
 

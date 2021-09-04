@@ -71,7 +71,7 @@ func (c *RPCClient) Do() {
 	go c.fetchBeaconTemplate()
 	for {
 		c.fetchShards()
-		time.Sleep(1)
+		time.Sleep(time.Second)
 	}
 }
 

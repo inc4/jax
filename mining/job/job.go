@@ -7,7 +7,6 @@
 package job
 
 import (
-	btcdjson "github.com/btcsuite/btcd/btcjson"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/mining"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
@@ -83,11 +82,7 @@ type Job struct {
 	shards        map[common.ShardID]*ShardTask
 	ShardsTargets []*ShardTask // it's `shards` sorted by Target. sort on update
 
-	BitcoinBlock       *btcdwire.MsgBlock
-	BitcoinBlockHeight int64
-	BitcoinBlockBits   uint32
-	BitcoinBlockTarget *big.Int
-	BeaconHash         chainhash.Hash
+	BeaconHash chainhash.Hash
 
 	lastExtraNonce *uint64
 }
@@ -167,24 +162,6 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	if err != nil {
 		log.Println(err)
 	}
-}
-
-func (h *Job) ProcessBitcoinTemplate(template *btcdjson.GetBlockTemplateResult) {
-	h.Lock()
-	defer h.Unlock()
-
-	block, target, height, err := h.decodeBitcoinResponse(template)
-	if err != nil {
-		log.Println("Can't decode beacon block template response", err)
-		return
-	}
-
-	h.BitcoinBlock = utils.BitcoinBlockCopy(block)
-	h.BitcoinBlockHeight = height
-	h.BitcoinBlockBits = block.Header.Bits
-	h.BitcoinBlockTarget = target
-
-	h.BitcoinBlock, _ = utils.UpdateBitcoinExtraNonce(h.BitcoinBlock, h.BitcoinBlockHeight, 0x00, h.BeaconHash[:])
 }
 
 func (h *Job) GetBitcoinCoinbase(reward, fee, height int64) (*btcdwire.MsgTx, error) {

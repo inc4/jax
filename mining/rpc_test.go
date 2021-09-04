@@ -2,7 +2,6 @@ package mining
 
 import (
 	"github.com/inc4/jax/mining/job"
-	"github.com/inc4/jax/mining/test"
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"testing"
@@ -32,14 +31,11 @@ func TestCoinbase(t *testing.T) {
 		EnableBTCMining: true,
 	}
 	job := job.NewJob(jobConfig)
-	job.ProcessBitcoinTemplate(test.GetBtc())
-	cTx1 := job.BitcoinBlock.Transactions[0]
 
-	cTx2, err := job.GetBitcoinCoinbase(625540727, 666, 703687)
+	cTx, err := job.GetBitcoinCoinbase(625540727, 666, 703687)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log(cTx2.TxHash())
-	assert.Equal(t, cTx1.TxHash(), cTx2.TxHash())
+	assert.Equal(t, "8c660f2a85a770bec3f353aa128a6fce51c0d155e28d7419ed2d47994a0b6d01", cTx.TxHash().String())
 }
