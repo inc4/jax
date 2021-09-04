@@ -1,4 +1,4 @@
-package mining
+package job
 
 import (
 	btc_wire "github.com/btcsuite/btcd/wire"
