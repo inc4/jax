@@ -2,7 +2,7 @@ package mining
 
 import (
 	"context"
-	"gitlab.com/inc4/jax/mining/job"
+	"github.com/inc4/jax/mining/job"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
@@ -38,7 +38,7 @@ func NewRPCClient(config *Config) (*RPCClient, error) {
 	return &RPCClient{
 		config: config,
 		rpc:    rpc,
-		job:    NewJob(),
+		job:    job.NewJob(jobConfig),
 		shards: make(map[uint32]context.CancelFunc),
 		log:    log.Default(),
 	}, nil
@@ -89,7 +89,7 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			log.Println("beacon", template.Height)
-			// TODO job.update(template)
+			c.job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
 			time.Sleep(getTemplateInverval)
@@ -115,7 +115,7 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				template := r.result
 				params.LongPollID = template.LongPollID
 				log.Println("shard", id, template.Height)
-				// TODO job.update(template)
+				c.job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
 				time.Sleep(getTemplateInverval)
