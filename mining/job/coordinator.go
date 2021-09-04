@@ -95,6 +95,9 @@ type Coordinator struct {
 }
 
 func (h *Coordinator) processShardCandidate(e events.ShardBlockCandidate) {
+	h.Lock()
+	defer h.Unlock()
+
 	shardID := e.ShardID
 
 	block, target, height, err := h.decodeShardBlockTemplateResponse(e.Candidate)
@@ -134,6 +137,9 @@ func (h *Coordinator) processShardCandidate(e events.ShardBlockCandidate) {
 }
 
 func (h *Coordinator) processBeaconCandidate(event events.BeaconBlockCandidate) {
+	h.Lock()
+	defer h.Unlock()
+
 	block, target, height, err := h.decodeBeaconResponse(event.Candidate)
 	if err != nil {
 		log.Println("Can't decode beacon block template response")
@@ -161,6 +167,9 @@ func (h *Coordinator) processBeaconCandidate(event events.BeaconBlockCandidate) 
 }
 
 func (h *Coordinator) processBitcoinCandidate(event events.BitcoinBlockCandidate) {
+	h.Lock()
+	defer h.Unlock()
+
 	block, target, height, err := h.decodeBitcoinResponse(event.Candidate)
 	if err != nil {
 		log.Println("Can't decode beacon block template response", err)
