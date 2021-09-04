@@ -164,19 +164,21 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	}
 }
 
-func (h *Job) GetBitcoinCoinbase(reward, fee, height int64) (*btcdwire.MsgTx, error) {
+func (h *Job) GetBitcoinCoinbase(reward, fee, height int64) (par1, part2 []byte, err error) {
 	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(reward, fee, int32(height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	coinbaseTx := utils.JaxTxToBtcTx(jaxCoinbaseTx.MsgTx())
 
 	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(height, utils.PackUint64LE(0x00), h.BeaconHash[:])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &coinbaseTx, err
+	fakeBlock := btcdwire.MsgBlock{Transactions: []*btcdwire.MsgTx{&coinbaseTx}}
+	part1, part2 := utils.SplitCoinbase(&fakeBlock)
+	return part1, part2, err
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {
