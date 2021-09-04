@@ -95,7 +95,11 @@ type Coordinator struct {
 	lastExtraNonce *uint64
 }
 
-func (h *Coordinator) processShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
+func NewCoordinator(config *Configuration) *Coordinator {
+	return &Coordinator{config: config}
+}
+
+func (h *Coordinator) ProcessShardCandidate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -135,7 +139,7 @@ func (h *Coordinator) processShardCandidate(template *jaxjson.GetShardBlockTempl
 
 }
 
-func (h *Coordinator) processBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
+func (h *Coordinator) ProcessBeaconCandidate(template *jaxjson.GetBeaconBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -165,7 +169,7 @@ func (h *Coordinator) processBeaconCandidate(template *jaxjson.GetBeaconBlockTem
 	}
 }
 
-func (h *Coordinator) processBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
+func (h *Coordinator) ProcessBitcoinCandidate(template *btcdjson.GetBlockTemplateResult) {
 	h.Lock()
 	defer h.Unlock()
 
