@@ -30,24 +30,7 @@ var (
 	jaxNetParams = &chaincfg.TestNet3Params
 )
 
-type NetworkConfig struct {
-	Host       string `yaml:"host"`
-	Port       uint16 `yaml:"port"`
-	DisableTLS bool   `yaml:"disableTLS"`
-}
-type RPCConfig struct {
-	User         string            `yaml:"user"`
-	Pass         string            `yaml:"pass"`
-	Network      NetworkConfig     `yaml:"network"`
-	ExtraHeaders map[string]string `yaml:"extra_headers"`
-}
-type ShardConfig struct {
-	ID  common.ShardID `yaml:"id"`
-	RPC RPCConfig      `yaml:"rpc"`
-}
-
 type Configuration struct {
-	EnableBTCMining  bool // always true
 	BtcMiningAddress jaxutil.Address
 	JaxMiningAddress jaxutil.Address
 	ShardsCount      uint32
@@ -105,29 +88,19 @@ type Job struct {
 }
 
 func NewJob(rpcClient RpcClient, BtcAddress, JaxAddress string) (job *Job, err error) {
-
-	config := &Configuration{
-		EnableBTCMining: true,
-		ShardsCount:     3,
-	}
-
-	config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
-	if err != nil {
-		return
-	}
-	config.JaxMiningAddress, err = jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
-	if err != nil {
-		return
-	}
-
 	job = &Job{
-		config:     config,
+		config:     &Configuration{ShardsCount: 3},
 		rpcClient:  rpcClient,
 		shards:     make(map[common.ShardID]*ShardTask),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
-	for i := 1; i <= 3; i++ {
-		job.shards[common.ShardID(i)] = &ShardTask{}
+	job.config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
+	if err != nil {
+		return
+	}
+	job.config.JaxMiningAddress, err = jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
+	if err != nil {
+		return
 	}
 
 	return
