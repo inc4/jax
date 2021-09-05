@@ -147,7 +147,6 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	h.BeaconBlock = block
 	h.BeaconTarget = target
 	h.BeaconBlockHeight = height
-	h.BeaconHash = block.Header.BeaconHeader().BeaconExclusiveHash()
 
 	lastBCHeader = block.Header.BeaconHeader().Copy().BeaconHeader()
 	lastBCCoinbaseAux = wire.CoinbaseAux{
@@ -221,5 +220,7 @@ func (h *Job) updateMergedMiningProof() (err error) {
 
 	h.BeaconBlock.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
 	h.BeaconBlock.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
+
+	h.BeaconHash = h.BeaconBlock.Header.BeaconHeader().BeaconExclusiveHash()
 	return
 }
