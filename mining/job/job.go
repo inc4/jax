@@ -9,6 +9,7 @@ package job
 import (
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/mining"
+	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
 	"math/big"
@@ -23,6 +24,10 @@ import (
 
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
+)
+
+var (
+	jaxNetParams = &chaincfg.TestNet3Params
 )
 
 type NetworkConfig struct {
@@ -42,13 +47,10 @@ type ShardConfig struct {
 }
 
 type Configuration struct {
-	Shards           map[common.ShardID]ShardConfig
-	EnableBTCMining  bool
-	BurnBtcReward    bool
-	BurnJaxReward    bool
-	BurnJaxNetReward bool
+	EnableBTCMining  bool // always true
 	BtcMiningAddress jaxutil.Address
 	JaxMiningAddress jaxutil.Address
+	ShardsCount      uint32
 }
 
 type ShardTask struct {
@@ -102,8 +104,23 @@ type Job struct {
 	lastCoinbaseData *CoinBaseData
 }
 
-func NewJob(config *Configuration, rpcClient RpcClient) *Job {
-	job := &Job{
+func NewJob(rpcClient RpcClient, BtcAddress, JaxAddress string) (job *Job, err error) {
+
+	config := &Configuration{
+		EnableBTCMining: true,
+		ShardsCount:     3,
+	}
+
+	config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
+	if err != nil {
+		return
+	}
+	config.JaxMiningAddress, err = jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
+	if err != nil {
+		return
+	}
+
+	job = &Job{
 		config:     config,
 		rpcClient:  rpcClient,
 		shards:     make(map[common.ShardID]*ShardTask),
@@ -113,7 +130,7 @@ func NewJob(config *Configuration, rpcClient RpcClient) *Job {
 		job.shards[common.ShardID(i)] = &ShardTask{}
 	}
 
-	return job
+	return
 }
 
 func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
@@ -194,7 +211,7 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 }
 
 func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
-	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
+	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, false)
 	if err != nil {
 		return nil, err
 	}
@@ -212,14 +229,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {
-	knownShardsCount := len(h.config.Shards)
-	fetchedShardsCount := len(h.ShardsTargets)
-
-	if knownShardsCount == 0 || fetchedShardsCount == 0 {
-		return
-	}
-
-	tree := mm.NewSparseMerkleTree(uint32(knownShardsCount))
+	tree := mm.NewSparseMerkleTree(h.config.ShardsCount)
 	for id, shard := range h.shards {
 		// Shard IDs are going to be indexed from 1,
 		// but the tree expects slots to be indexed from 0.
