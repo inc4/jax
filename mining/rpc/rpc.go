@@ -21,8 +21,8 @@ type RPCClient struct {
 	shards        map[uint32]context.CancelFunc
 	log           *log.Logger
 
-	BeaconCallback func(*jaxjson.GetBeaconBlockTemplateResult)
-	ShardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
+	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult)
+	shardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
 }
 
 func NewRPCClient(serverAddress string) (*RPCClient, error) {
@@ -41,8 +41,8 @@ func NewRPCClient(serverAddress string) (*RPCClient, error) {
 }
 
 func (c *RPCClient) SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult), shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)) {
-	c.BeaconCallback = beaconCallback
-	c.ShardCallback = shardCallback
+	c.beaconCallback = beaconCallback
+	c.shardCallback = shardCallback
 }
 
 func (c *RPCClient) fetchShards() {
@@ -94,7 +94,7 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			c.log.Println("beacon", template.Height)
-			c.BeaconCallback(template)
+			c.beaconCallback(template)
 			//c.Job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
@@ -125,7 +125,7 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				template := r.result
 				params.LongPollID = template.LongPollID
 				c.log.Println("shard", id, template.Height)
-				c.ShardCallback(template, common.ShardID(id))
+				c.shardCallback(template, common.ShardID(id))
 				//c.Job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
