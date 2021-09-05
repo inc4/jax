@@ -7,11 +7,11 @@
 package job
 
 import (
+	"fmt"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/mining"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
-	"log"
 	"math/big"
 	"sort"
 	"sync"
@@ -52,7 +52,7 @@ type CoinBaseData struct {
 }
 
 type RpcClient interface {
-	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult), shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID))
+	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error, shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error)
 	SubmitBeacon(block *jaxutil.Block)
 	SubmitShard(block *jaxutil.Block, shardID common.ShardID)
 }
@@ -109,14 +109,13 @@ func NewJob(rpcClient RpcClient, BtcAddress, JaxAddress string) (job *Job, err e
 	return
 }
 
-func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
+func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) error {
 	h.Lock()
 	defer h.Unlock()
 
 	block, target, height, err := h.decodeShardBlockTemplateResponse(template)
 	if err != nil {
-		log.Println("Can't decode shard block template response", err)
-		return
+		return fmt.Errorf("can't decode shard block template response: %v", err)
 	}
 
 	// todo: add the sme deduplication mechanics as was added for beacon block.
@@ -142,24 +141,22 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 	sort.Slice(h.ShardsTargets, func(i, j int) bool { return h.ShardsTargets[i].Target.Cmp(h.ShardsTargets[j].Target) == -1 })
 
 	if err = h.updateMergedMiningProof(); err != nil {
-		log.Println(err)
-		return
+		return fmt.Errorf("can't update merged mining proof: %v", err)
 	}
 
 	if err = h.updateCoinbase(); err != nil {
-		log.Println(err)
-		return
+		return fmt.Errorf("can't update coinbase: %v", err)
 	}
+	return nil
 }
 
-func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) {
+func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) error {
 	h.Lock()
 	defer h.Unlock()
 
 	block, target, height, err := h.decodeBeaconResponse(template)
 	if err != nil {
-		log.Println("Can't decode beacon block template response")
-		return
+		return fmt.Errorf("can't decode beacon block template response: %v", err)
 	}
 
 	h.BeaconBlock = block
@@ -176,14 +173,13 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	}
 
 	if err = h.updateMergedMiningProof(); err != nil {
-		log.Println(err)
-		return
+		return fmt.Errorf("can't update merged mining proof: %v", err)
 	}
 
 	if err = h.updateCoinbase(); err != nil {
-		log.Println(err)
-		return
+		return fmt.Errorf("can't update coinbase: %v", err)
 	}
+	return nil
 }
 
 func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {

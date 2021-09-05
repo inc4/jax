@@ -21,8 +21,8 @@ type RPCClient struct {
 	shards        map[uint32]context.CancelFunc
 	log           *log.Logger
 
-	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult)
-	shardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
+	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error
+	shardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error
 }
 
 func NewRPCClient(serverAddress string) (*RPCClient, error) {
@@ -40,7 +40,10 @@ func NewRPCClient(serverAddress string) (*RPCClient, error) {
 	}, nil
 }
 
-func (c *RPCClient) SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult), shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)) {
+func (c *RPCClient) SetCallbacks(
+	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error,
+	shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error,
+) {
 	c.beaconCallback = beaconCallback
 	c.shardCallback = shardCallback
 }
@@ -94,7 +97,12 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			c.log.Println("beacon", template.Height)
-			c.beaconCallback(template)
+
+			err := c.beaconCallback(template)
+			if err != nil {
+				c.log.Println("ERR", err)
+			}
+
 		} else {
 			c.log.Println("ERR", err)
 			time.Sleep(getTemplateInverval)
@@ -124,7 +132,12 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				template := r.result
 				params.LongPollID = template.LongPollID
 				c.log.Println("shard", id, template.Height)
-				c.shardCallback(template, common.ShardID(id))
+
+				err := c.shardCallback(template, common.ShardID(id))
+				if err != nil {
+					c.log.Println("ERR", err)
+				}
+
 			} else {
 				c.log.Println("ERR", r.err)
 				time.Sleep(getTemplateInverval)
