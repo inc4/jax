@@ -27,7 +27,7 @@ func GetBeacon() *jaxjson.GetBeaconBlockTemplateResult {
 }
 
 func getTemplate(name string, v interface{}) {
-	dat, err := os.ReadFile("../test/" + name + ".json")
+	dat, err := os.ReadFile("test/" + name + ".json")
 	if err != nil {
 		log.Fatalln(err)
 	}
