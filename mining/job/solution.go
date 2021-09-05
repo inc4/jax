@@ -8,10 +8,21 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/pow"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 
+	"bytes"
 	"log"
 )
 
-func (h *Job) CheckSolution(btcHeader btcwire.BlockHeader, coinbaseTx *wire.MsgTx) {
+func (h *Job) Solution(btcHeader, coinbaseTx []byte) {
+	header := &btcwire.BlockHeader{}
+	header.Deserialize(bytes.NewReader(btcHeader))
+
+	tx := &wire.MsgTx{}
+	tx.Deserialize(bytes.NewReader(coinbaseTx))
+
+	h.CheckSolution(header, tx)
+}
+
+func (h *Job) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) {
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
 		PrevBlock:   chainhash.Hash(btcHeader.PrevBlock),
