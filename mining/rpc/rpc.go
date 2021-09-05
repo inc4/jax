@@ -5,7 +5,6 @@ import (
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
-	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
 	"net/url"
@@ -16,17 +15,11 @@ const (
 	getTemplateInverval = time.Second
 )
 
-var (
-	jaxNetParams = &chaincfg.TestNet3Params
-)
-
 type RPCClient struct {
-	serverAddress    string
-	JaxRewardAddress *jaxutil.Address
-	BTCRewardAddress *jaxutil.Address // TODO
-	rpc              *rpcclient.Client
-	shards           map[uint32]context.CancelFunc
-	log              *log.Logger
+	serverAddress string
+	rpc           *rpcclient.Client
+	shards        map[uint32]context.CancelFunc
+	log           *log.Logger
 
 	BeaconCallback func(*jaxjson.GetBeaconBlockTemplateResult)
 	ShardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
@@ -37,25 +30,13 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 	if err != nil {
 		return nil, err
 	}
-	jaxRewardAddress, err := jaxutil.DecodeAddress(
-		JaxRewardAddress, jaxNetParams)
-	if err != nil {
-		return nil, err
-	}
-	btcRewardAddress, err := jaxutil.DecodeAddress(
-		BTCRewardAddress, jaxNetParams)
-	if err != nil {
-		return nil, err
-	}
 
 	// todo set callbacks
 	return &RPCClient{
-		serverAddress:    serverAddress,
-		JaxRewardAddress: &jaxRewardAddress,
-		BTCRewardAddress: &btcRewardAddress,
-		rpc:              rpc,
-		shards:           make(map[uint32]context.CancelFunc),
-		log:              log.Default(),
+		serverAddress: serverAddress,
+		rpc:           rpc,
+		shards:        make(map[uint32]context.CancelFunc),
+		log:           log.Default(),
 	}, nil
 }
 
