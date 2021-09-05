@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"github.com/inc4/jax/mining/job"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
@@ -26,7 +25,6 @@ type RPCClient struct {
 	JaxRewardAddress *jaxutil.Address
 	BTCRewardAddress *jaxutil.Address // TODO
 	rpc              *rpcclient.Client
-	Job              *job.Job
 	shards           map[uint32]context.CancelFunc
 	log              *log.Logger
 
@@ -34,7 +32,10 @@ type RPCClient struct {
 	shardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
 }
 
-func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RPCClient, error) {
+func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string,
+	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult),
+	shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID),
+) (*RPCClient, error) {
 	rpc, err := rpcclient.New(jaxRPCConfig(serverAddress), nil)
 	if err != nil {
 		return nil, err
@@ -58,6 +59,8 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 		rpc:              rpc,
 		shards:           make(map[uint32]context.CancelFunc),
 		log:              log.Default(),
+		shardCallback:    shardCallback,
+		beaconCallback:   beaconCallback,
 	}, nil
 }
 
