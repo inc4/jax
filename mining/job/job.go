@@ -51,19 +51,10 @@ type CoinBaseData struct {
 	Height      uint32
 }
 
-//go:generate mockgen -source=job.go -destination mock_job_test.go -package job
-type RpcClient interface {
-	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error, shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error)
-	SubmitBeacon(block *jaxutil.Block) error
-	SubmitShard(block *jaxutil.Block, shardID common.ShardID) error
-}
-
 type Job struct {
-	utils.StoppableMixin
 	sync.Mutex
 
-	config    *Configuration
-	rpcClient RpcClient
+	config *Configuration
 
 	BeaconBlock       *wire.MsgBlock
 	BeaconBlockHeight int64
@@ -89,14 +80,14 @@ type Job struct {
 	lastCoinbaseData *CoinBaseData
 }
 
-func NewJob(rpcClient RpcClient, BtcAddress, JaxAddress string) (job *Job, err error) {
+func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
 	job = &Job{
-		config:     &Configuration{ShardsCount: 3},
-		rpcClient:  rpcClient,
+		config: &Configuration{
+			ShardsCount: 3,
+		},
 		shards:     make(map[common.ShardID]*ShardTask),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
-	job.rpcClient.SetCallbacks(job.ProcessBeaconTemplate, job.ProcessShardTemplate)
 
 	job.config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
 	if err != nil {
