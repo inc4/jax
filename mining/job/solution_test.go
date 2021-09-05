@@ -1,7 +1,5 @@
 package job
 
-//go:generate mockgen -source=job.go -destination solution_rpcmock_test.go -package job
-
 import (
 	"encoding/hex"
 	"github.com/golang/mock/gomock"

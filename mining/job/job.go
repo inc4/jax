@@ -51,6 +51,7 @@ type CoinBaseData struct {
 	Height      uint32
 }
 
+//go:generate mockgen -source=job.go -destination mock_job_test.go -package job
 type RpcClient interface {
 	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error, shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error)
 	SubmitBeacon(block *jaxutil.Block) error
