@@ -115,7 +115,7 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 
 	block, target, height, err := h.decodeShardBlockTemplateResponse(template)
 	if err != nil {
-		return fmt.Errorf("can't decode shard block template response: %v", err)
+		return fmt.Errorf("can't decode shard block template response: %w", err)
 	}
 
 	// todo: add the sme deduplication mechanics as was added for beacon block.
@@ -141,11 +141,11 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 	sort.Slice(h.ShardsTargets, func(i, j int) bool { return h.ShardsTargets[i].Target.Cmp(h.ShardsTargets[j].Target) == -1 })
 
 	if err = h.updateMergedMiningProof(); err != nil {
-		return fmt.Errorf("can't update merged mining proof: %v", err)
+		return fmt.Errorf("can't update merged mining proof: %w", err)
 	}
 
 	if err = h.updateCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %v", err)
+		return fmt.Errorf("can't update coinbase: %w", err)
 	}
 	return nil
 }
@@ -156,7 +156,7 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 
 	block, target, height, err := h.decodeBeaconResponse(template)
 	if err != nil {
-		return fmt.Errorf("can't decode beacon block template response: %v", err)
+		return fmt.Errorf("can't decode beacon block template response: %w", err)
 	}
 
 	h.BeaconBlock = block
@@ -173,11 +173,11 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	}
 
 	if err = h.updateMergedMiningProof(); err != nil {
-		return fmt.Errorf("can't update merged mining proof: %v", err)
+		return fmt.Errorf("can't update merged mining proof: %w", err)
 	}
 
 	if err = h.updateCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %v", err)
+		return fmt.Errorf("can't update coinbase: %w", err)
 	}
 	return nil
 }
