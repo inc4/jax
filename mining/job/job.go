@@ -103,12 +103,17 @@ type Job struct {
 }
 
 func NewJob(config *Configuration, rpcClient RpcClient) *Job {
-	return &Job{
+	job := &Job{
 		config:     config,
 		rpcClient:  rpcClient,
 		shards:     make(map[common.ShardID]*ShardTask),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
+	for i := 1; i <= 3; i++ {
+		job.shards[common.ShardID(i)] = &ShardTask{}
+	}
+
+	return job
 }
 
 func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) {
