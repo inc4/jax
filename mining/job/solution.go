@@ -1,13 +1,12 @@
 package job
 
 import (
-	"encoding/hex"
 	btcwire "github.com/btcsuite/btcd/wire"
 	"gitlab.com/jaxnet/core/miner/core/common"
+	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/pow"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
-	"log"
 
 	"bytes"
 )
@@ -56,27 +55,12 @@ func (h *Job) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.Msg
 }
 
 func (h *Job) submitBeacon(block *wire.MsgBlock) {
-	he, err := blockToHex(block)
-	if err != nil {
-		log.Println(err) // todo ?
-	}
-	h.rpcClient.SubmitBeacon(he)
+	wireBlock := jaxutil.NewBlock(block)
+	h.rpcClient.SubmitBeacon(wireBlock)
 }
 
 func (h *Job) submitShard(block *wire.MsgBlock, shardID common.ShardID) {
-	he, err := blockToHex(block)
-	if err != nil {
-		log.Println(err) // todo ?
-	}
-	h.rpcClient.SubmitShard(he, shardID)
+	wireBlock := jaxutil.NewBlock(block)
+	h.rpcClient.SubmitShard(wireBlock, shardID)
 
-}
-
-func blockToHex(block *wire.MsgBlock) (string, error) {
-	buf := new(bytes.Buffer)
-	err := block.Serialize(buf)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf.Bytes()), nil
 }
