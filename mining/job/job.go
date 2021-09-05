@@ -53,8 +53,8 @@ type CoinBaseData struct {
 
 type RpcClient interface {
 	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult) error, shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID) error)
-	SubmitBeacon(block *jaxutil.Block)
-	SubmitShard(block *jaxutil.Block, shardID common.ShardID)
+	SubmitBeacon(block *jaxutil.Block) error
+	SubmitShard(block *jaxutil.Block, shardID common.ShardID) error
 }
 
 type Job struct {

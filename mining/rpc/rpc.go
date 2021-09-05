@@ -149,12 +149,12 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 	}
 }
 
-func (c *RPCClient) SubmitBeacon(block *jaxutil.Block) {
-	c.rpc.SubmitBlock(block, nil)
+func (c *RPCClient) SubmitBeacon(block *jaxutil.Block) error {
+	return c.rpc.SubmitBlock(block, nil)
 }
 
-func (c *RPCClient) SubmitShard(block *jaxutil.Block, shardID common.ShardID) {
-	c.rpc.ForShard(uint32(shardID)).SubmitBlock(block, nil)
+func (c *RPCClient) SubmitShard(block *jaxutil.Block, shardID common.ShardID) error {
+	return c.rpc.ForShard(uint32(shardID)).SubmitBlock(block, nil)
 }
 
 func jaxRPCConfig(address string) *rpcclient.ConnConfig {

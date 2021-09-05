@@ -35,11 +35,21 @@ func TestTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	job.ProcessBeaconTemplate(test.GetBeacon())
-	job.ProcessShardTemplate(test.GetShard(), 1)
+	err = job.ProcessBeaconTemplate(test.GetBeacon())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = job.ProcessShardTemplate(test.GetShard(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	btcHeader, _ := hex.DecodeString("00004020b6ef34e5bcb9662ee1645ab64feb6c5ec29f4e5ab2329c010000000000000000d927ccc17e9e89d135988350c6138545a0798d12ae51adb4995dbfe9adcf71d9e1f33461ba6a0418c7a734ac")
 	coinbaseTx, _ := hex.DecodeString("01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff3c0369561608ffffffffffffffff2028cd7057e92b29dc6c5fbedb17d6e3e1c1162954f066bd704d606424cf3b47db0d2f503253482f6a61786e65742fffffffff030000000000000000176a152068747470733a2f2f6a61782e6e6574776f726b200046c3230000000001511027000000000000015100000000")
-	job.Solution(btcHeader, coinbaseTx)
+
+	err = job.Solution(btcHeader, coinbaseTx)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 }
