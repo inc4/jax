@@ -2,12 +2,17 @@ package job
 
 import (
 	"encoding/hex"
+	"github.com/inc4/jax/mining/rpc"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestCoinbase(t *testing.T) {
-	job, _ := NewJob(nil, "", "")
+	rpcClient, err := rpc.NewRPCClient("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, _ := NewJob(rpcClient, "", "")
 
 	coinbase, err := job.GetBitcoinCoinbase(&CoinBaseData{Reward: 625540727, Fee: 666, Height: 703687})
 	if err != nil {
