@@ -13,10 +13,11 @@ import (
 
 const getTemplateInverval = time.Second
 
+// TODO make Job main struct, rpc have to be part of it
 type RPCClient struct {
 	config *Config
 	rpc    *rpcclient.Client
-	job    *job.Job
+	Job    *job.Job
 	shards map[uint32]context.CancelFunc
 	log    *log.Logger
 }
@@ -38,7 +39,7 @@ func NewRPCClient(config *Config) (*RPCClient, error) {
 	return &RPCClient{
 		config: config,
 		rpc:    rpc,
-		job:    job.NewJob(jobConfig),
+		Job:    job.NewJob(jobConfig),
 		shards: make(map[uint32]context.CancelFunc),
 		log:    log.Default(),
 	}, nil
@@ -93,7 +94,7 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			c.log.Println("beacon", template.Height)
-			c.job.ProcessBeaconTemplate(template)
+			c.Job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
 			time.Sleep(getTemplateInverval)
@@ -123,7 +124,7 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				template := r.result
 				params.LongPollID = template.LongPollID
 				c.log.Println("shard", id, template.Height)
-				c.job.ProcessShardTemplate(template, common.ShardID(id))
+				c.Job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
 				time.Sleep(getTemplateInverval)
