@@ -37,15 +37,6 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 	if err != nil {
 		return nil, err
 	}
-	jobConfig := &job.Configuration{
-		Shards:           make(map[common.ShardID]job.ShardConfig),
-		EnableBTCMining:  true,
-		BurnBtcReward:    false,
-		BurnJaxReward:    false,
-		BurnJaxNetReward: false,
-		BtcMiningAddress: nil,
-		JaxMiningAddress: nil,
-	}
 	jaxRewardAddress, err := jaxutil.DecodeAddress(
 		JaxRewardAddress, jaxNetParams)
 	if err != nil {
@@ -56,12 +47,23 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 	if err != nil {
 		return nil, err
 	}
+	jobConfig := &job.Configuration{
+		Shards:           make(map[common.ShardID]job.ShardConfig),
+		EnableBTCMining:  true,
+		BurnBtcReward:    false,
+		BurnJaxReward:    false,
+		BurnJaxNetReward: false,
+		BtcMiningAddress: btcRewardAddress,
+		JaxMiningAddress: jaxRewardAddress,
+	}
+	job := job.NewJob(jobConfig)
+
 	return &RPCClient{
 		serverAddress:    serverAddress,
 		JaxRewardAddress: &jaxRewardAddress,
 		BTCRewardAddress: &btcRewardAddress,
 		rpc:              rpc,
-		Job:              job.NewJob(jobConfig),
+		Job:              job,
 		shards:           make(map[uint32]context.CancelFunc),
 		log:              log.Default(),
 	}, nil
