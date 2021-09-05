@@ -3,16 +3,11 @@ package job
 import (
 	"encoding/hex"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/jaxnet/core/miner/core/common"
 	"testing"
 )
 
 func TestCoinbase(t *testing.T) {
-	jobConfig := &Configuration{
-		Shards:          make(map[common.ShardID]ShardConfig),
-		EnableBTCMining: true,
-	}
-	job := NewJob(jobConfig, nil)
+	job, _ := NewJob(nil, "", "")
 
 	coinbase, err := job.GetBitcoinCoinbase(&CoinBaseData{Reward: 625540727, Fee: 666, Height: 703687})
 	if err != nil {

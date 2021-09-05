@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	common "gitlab.com/jaxnet/core/miner/core/common"
 	jaxutil "gitlab.com/jaxnet/jaxnetd/jaxutil"
+	jaxjson "gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 )
 
 // MockRpcClient is a mock of RpcClient interface.
@@ -33,6 +34,18 @@ func NewMockRpcClient(ctrl *gomock.Controller) *MockRpcClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRpcClient) EXPECT() *MockRpcClientMockRecorder {
 	return m.recorder
+}
+
+// SetCallbacks mocks base method.
+func (m *MockRpcClient) SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult), shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCallbacks", beaconCallback, shardCallback)
+}
+
+// SetCallbacks indicates an expected call of SetCallbacks.
+func (mr *MockRpcClientMockRecorder) SetCallbacks(beaconCallback, shardCallback interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCallbacks", reflect.TypeOf((*MockRpcClient)(nil).SetCallbacks), beaconCallback, shardCallback)
 }
 
 // SubmitBeacon mocks base method.

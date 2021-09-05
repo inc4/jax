@@ -62,5 +62,4 @@ func (h *Job) submitBeacon(block *wire.MsgBlock) {
 func (h *Job) submitShard(block *wire.MsgBlock, shardID common.ShardID) {
 	wireBlock := jaxutil.NewBlock(block)
 	h.rpcClient.SubmitShard(wireBlock, shardID)
-
 }
