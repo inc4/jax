@@ -11,7 +11,7 @@ import (
 	"log"
 )
 
-func (h *Job) CheckSolution(btcHeader btcwire.BlockHeader, coinbase wire.CoinbaseAux) {
+func (h *Job) CheckSolution(btcHeader btcwire.BlockHeader, coinbaseTx *wire.MsgTx) {
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
 		PrevBlock:   chainhash.Hash(btcHeader.PrevBlock),
@@ -19,7 +19,7 @@ func (h *Job) CheckSolution(btcHeader btcwire.BlockHeader, coinbase wire.Coinbas
 		Timestamp:   btcHeader.Timestamp,
 		Bits:        btcHeader.Bits,
 		Nonce:       btcHeader.Nonce,
-		CoinbaseAux: coinbase,
+		CoinbaseAux: wire.CoinbaseAux{Tx: *coinbaseTx},
 	}
 
 	hash := btcHeader.BlockHash()
