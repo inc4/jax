@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	getTemplateInverval = time.Second
+	getTemplateInverval = time.Second * 600
 )
 
 var (
