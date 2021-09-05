@@ -1,4 +1,4 @@
-package mining
+package rpc
 
 import (
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"

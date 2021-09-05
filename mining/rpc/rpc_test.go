@@ -1,4 +1,4 @@
-package mining
+package rpc
 
 import (
 	"encoding/hex"
