@@ -252,6 +252,11 @@ func (h *Job) updateMergedMiningProof() (err error) {
 }
 
 func (h *Job) updateCoinbase() error {
+	if h.lastCoinbaseData == nil {
+		// todo do smth?
+		return nil
+	}
+
 	coinbase, err := h.GetBitcoinCoinbase(h.lastCoinbaseData)
 	if err != nil {
 		return err
