@@ -157,10 +157,10 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 	}
 }
 
-func (c *RPCClient) SubmitBeacon(block *jaxutil.Block) {
+func (c *RPCClient) SubmitBeacon(block string) {
 }
 
-func (c *RPCClient) SubmitShard(block *jaxutil.Block, shardID common.ShardID) {
+func (c *RPCClient) SubmitShard(block string, shardID common.ShardID) {
 }
 
 func jaxRPCConfig(address string) *rpcclient.ConnConfig {
