@@ -52,6 +52,7 @@ type CoinBaseData struct {
 }
 
 type RpcClient interface {
+	SetCallbacks(beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult), shardCallback func(*jaxjson.GetShardBlockTemplateResult, common.ShardID))
 	SubmitBeacon(block *jaxutil.Block)
 	SubmitShard(block *jaxutil.Block, shardID common.ShardID)
 }
@@ -94,6 +95,8 @@ func NewJob(rpcClient RpcClient, BtcAddress, JaxAddress string) (job *Job, err e
 		shards:     make(map[common.ShardID]*ShardTask),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
+	job.rpcClient.SetCallbacks(job.ProcessBeaconTemplate, job.ProcessShardTemplate)
+
 	job.config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
 	if err != nil {
 		return
