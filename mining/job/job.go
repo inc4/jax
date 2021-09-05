@@ -164,7 +164,7 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	}
 }
 
-func (h *Job) GetBitcoinCoinbase(reward, fee, height int64) (par1, part2 []byte, err error) {
+func (h *Job) GetBitcoinCoinbase(reward, fee, height uint32) (par1, part2 []byte, err error) {
 	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(reward, fee, int32(height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
 	if err != nil {
 		return nil, nil, err
