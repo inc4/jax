@@ -21,7 +21,6 @@ var (
 	jaxNetParams = &chaincfg.TestNet3Params
 )
 
-// TODO make Job main struct, rpc have to be part of it
 type RPCClient struct {
 	serverAddress    string
 	JaxRewardAddress *jaxutil.Address
@@ -30,6 +29,9 @@ type RPCClient struct {
 	Job              *job.Job
 	shards           map[uint32]context.CancelFunc
 	log              *log.Logger
+
+	beaconCallback func(*jaxjson.GetBeaconBlockTemplateResult)
+	shardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
 }
 
 func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RPCClient, error) {
@@ -47,23 +49,13 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 	if err != nil {
 		return nil, err
 	}
-	jobConfig := &job.Configuration{
-		Shards:           make(map[common.ShardID]job.ShardConfig),
-		EnableBTCMining:  true,
-		BurnBtcReward:    false,
-		BurnJaxReward:    false,
-		BurnJaxNetReward: false,
-		BtcMiningAddress: btcRewardAddress,
-		JaxMiningAddress: jaxRewardAddress,
-	}
-	job := job.NewJob(jobConfig)
 
+	// todo set callbacks
 	return &RPCClient{
 		serverAddress:    serverAddress,
 		JaxRewardAddress: &jaxRewardAddress,
 		BTCRewardAddress: &btcRewardAddress,
 		rpc:              rpc,
-		Job:              job,
 		shards:           make(map[uint32]context.CancelFunc),
 		log:              log.Default(),
 	}, nil
@@ -118,7 +110,8 @@ func (c *RPCClient) fetchBeaconTemplate() {
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			c.log.Println("beacon", template.Height)
-			c.Job.ProcessBeaconTemplate(template)
+			c.beaconCallback(template)
+			//c.Job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
 			time.Sleep(getTemplateInverval)
@@ -148,7 +141,8 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				template := r.result
 				params.LongPollID = template.LongPollID
 				c.log.Println("shard", id, template.Height)
-				c.Job.ProcessShardTemplate(template, common.ShardID(id))
+				c.shardCallback(template, common.ShardID(id))
+				//c.Job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
 				time.Sleep(getTemplateInverval)
