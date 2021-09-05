@@ -92,7 +92,7 @@ type Job struct {
 
 	BeaconHash chainhash.Hash
 
-	CoinBaseCh       chan<- *CoinBaseTx
+	CoinBaseCh       chan *CoinBaseTx
 	lastCoinbaseData *CoinBaseData
 }
 
