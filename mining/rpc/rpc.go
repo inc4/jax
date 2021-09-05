@@ -95,7 +95,6 @@ func (c *RPCClient) fetchBeaconTemplate() {
 			params.LongPollID = template.LongPollID
 			c.log.Println("beacon", template.Height)
 			c.beaconCallback(template)
-			//c.Job.ProcessBeaconTemplate(template)
 		} else {
 			c.log.Println("ERR", err)
 			time.Sleep(getTemplateInverval)
@@ -126,7 +125,6 @@ func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
 				params.LongPollID = template.LongPollID
 				c.log.Println("shard", id, template.Height)
 				c.shardCallback(template, common.ShardID(id))
-				//c.Job.ProcessShardTemplate(template, common.ShardID(id))
 			} else {
 				c.log.Println("ERR", r.err)
 				time.Sleep(getTemplateInverval)
