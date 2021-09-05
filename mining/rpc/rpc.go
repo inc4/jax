@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	getTemplateInverval = time.Second * 600
+	getTemplateInverval = time.Second
 )
 
 var (
@@ -91,7 +91,7 @@ func (c *RPCClient) Do() {
 	go c.fetchBeaconTemplate()
 	for {
 		c.fetchShards()
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 600)
 	}
 }
 
