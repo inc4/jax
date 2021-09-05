@@ -15,15 +15,17 @@ const getTemplateInverval = time.Second
 
 // TODO make Job main struct, rpc have to be part of it
 type RPCClient struct {
-	config *Config
-	rpc    *rpcclient.Client
-	Job    *job.Job
-	shards map[uint32]context.CancelFunc
-	log    *log.Logger
+	serverAddress    string
+	JaxRewardAddress string
+	BTCRewardAddress string
+	rpc              *rpcclient.Client
+	Job              *job.Job
+	shards           map[uint32]context.CancelFunc
+	log              *log.Logger
 }
 
-func NewRPCClient(config *Config) (*RPCClient, error) {
-	rpc, err := rpcclient.New(jaxRPCConfig(config.serverAddress), nil)
+func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RPCClient, error) {
+	rpc, err := rpcclient.New(jaxRPCConfig(serverAddress), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -37,11 +39,13 @@ func NewRPCClient(config *Config) (*RPCClient, error) {
 		JaxMiningAddress: nil,
 	}
 	return &RPCClient{
-		config: config,
-		rpc:    rpc,
-		Job:    job.NewJob(jobConfig),
-		shards: make(map[uint32]context.CancelFunc),
-		log:    log.Default(),
+		serverAddress:    serverAddress,
+		JaxRewardAddress: JaxRewardAddress,
+		BTCRewardAddress: BTCRewardAddress,
+		rpc:              rpc,
+		Job:              job.NewJob(jobConfig),
+		shards:           make(map[uint32]context.CancelFunc),
+		log:              log.Default(),
 	}, nil
 }
 
@@ -77,7 +81,7 @@ func (c *RPCClient) Do() {
 }
 
 func (c *RPCClient) fetchBeaconTemplate() {
-	clientConfig := jaxRPCConfig(c.config.serverAddress)
+	clientConfig := jaxRPCConfig(c.serverAddress)
 	rpc, err := rpcclient.New(clientConfig, nil)
 	if err != nil {
 		c.log.Println("ERR", err)
@@ -103,7 +107,7 @@ func (c *RPCClient) fetchBeaconTemplate() {
 }
 
 func (c *RPCClient) fetchShardTemplate(ctx context.Context, id uint32) {
-	clientConfig := jaxRPCConfig(c.config.serverAddress)
+	clientConfig := jaxRPCConfig(c.serverAddress)
 	clientConfig.ShardID = id
 	rpc, err := rpcclient.New(clientConfig, nil)
 	if err != nil {
