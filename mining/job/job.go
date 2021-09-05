@@ -249,7 +249,8 @@ func (h *Job) updateCoinbase() error {
 	if err != nil {
 		return err
 	}
-	// todo run this in goroutine to avoid deadlocks?
-	h.CoinBaseCh <- coinbase
+	go func() { // avoid deadlocks
+		h.CoinBaseCh <- coinbase
+	}()
 	return nil
 }
