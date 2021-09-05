@@ -31,7 +31,6 @@ func NewRPCClient(serverAddress string) (*RPCClient, error) {
 		return nil, err
 	}
 
-	// todo set callbacks
 	return &RPCClient{
 		serverAddress: serverAddress,
 		rpc:           rpc,
