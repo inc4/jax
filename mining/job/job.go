@@ -58,6 +58,14 @@ type ShardTask struct {
 	Target         *big.Int
 }
 
+type CoinBaseTx struct {
+	Part1, Part2 []byte
+}
+type CoinBaseData struct {
+	Reward, Fee int64
+	Height      uint32
+}
+
 type Job struct {
 	utils.StoppableMixin
 	sync.Mutex
@@ -84,13 +92,15 @@ type Job struct {
 
 	BeaconHash chainhash.Hash
 
-	lastExtraNonce *uint64
+	CoinBaseCh       chan<- *CoinBaseTx
+	lastCoinbaseData *CoinBaseData
 }
 
 func NewJob(config *Configuration) *Job {
 	return &Job{
-		config: config,
-		shards: make(map[common.ShardID]*ShardTask),
+		config:     config,
+		shards:     make(map[common.ShardID]*ShardTask),
+		CoinBaseCh: make(chan *CoinBaseTx),
 	}
 }
 
@@ -126,12 +136,15 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 	}
 	sort.Slice(h.ShardsTargets, func(i, j int) bool { return h.ShardsTargets[i].Target.Cmp(h.ShardsTargets[j].Target) == -1 })
 
-	err = h.updateMergedMiningProof()
-	if err != nil {
+	if err = h.updateMergedMiningProof(); err != nil {
 		log.Println(err)
 		return
 	}
 
+	if err = h.updateCoinbase(); err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) {
@@ -157,27 +170,33 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 		lastBCCoinbaseAux.TxMerkle[i] = tx.TxHash()
 	}
 
-	err = h.updateMergedMiningProof()
-	if err != nil {
+	if err = h.updateMergedMiningProof(); err != nil {
 		log.Println(err)
+		return
+	}
+
+	if err = h.updateCoinbase(); err != nil {
+		log.Println(err)
+		return
 	}
 }
 
-func (h *Job) GetBitcoinCoinbase(reward, fee int64, height uint32) (part1, part2 []byte, err error) {
-	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(reward, fee, int32(height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
+func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
+	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtcReward)
 	if err != nil {
-		return
+		return nil, err
 	}
 	coinbaseTx := utils.JaxTxToBtcTx(jaxCoinbaseTx.MsgTx())
+	h.lastCoinbaseData = d
 
-	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(int64(height), utils.PackUint64LE(0x00), h.BeaconHash[:])
+	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(int64(d.Height), utils.PackUint64LE(0x00), h.BeaconHash[:])
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	fakeBlock := btcdwire.MsgBlock{Transactions: []*btcdwire.MsgTx{&coinbaseTx}}
-	part1, part2 = utils.SplitCoinbase(&fakeBlock)
-	return
+	part1, part2 := utils.SplitCoinbase(&fakeBlock)
+	return &CoinBaseTx{part1, part2}, nil
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {
@@ -223,4 +242,14 @@ func (h *Job) updateMergedMiningProof() (err error) {
 
 	h.BeaconHash = h.BeaconBlock.Header.BeaconHeader().BeaconExclusiveHash()
 	return
+}
+
+func (h *Job) updateCoinbase() error {
+	coinbase, err := h.GetBitcoinCoinbase(h.lastCoinbaseData)
+	if err != nil {
+		return err
+	}
+	// todo run this in goroutine to avoid deadlocks?
+	h.CoinBaseCh <- coinbase
+	return nil
 }
