@@ -9,7 +9,6 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 
 	"bytes"
-	"log"
 )
 
 func (h *Job) Solution(btcHeader, coinbaseTx []byte) {
@@ -57,15 +56,11 @@ func (h *Job) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.Msg
 
 func (h *Job) submitBeacon(block *wire.MsgBlock) {
 	wireBlock := jaxutil.NewBlock(block)
-	log.Println(wireBlock)
-	// todo
-	//h.client.ForBeacon().SubmitBlock(wireBlock, nil)
+	h.rpcClient.SubmitBeacon(wireBlock)
 }
 
 func (h *Job) submitShard(block *wire.MsgBlock, shardID common.ShardID) {
 	wireBlock := jaxutil.NewBlock(block)
-	log.Println(wireBlock)
-	// todo
-	//h.client.ForShard(shardID).SubmitBlock(wireBlock, nil)
+	h.rpcClient.SubmitShard(wireBlock, shardID)
 
 }

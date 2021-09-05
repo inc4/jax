@@ -7,7 +7,6 @@
 package job
 
 import (
-	"github.com/inc4/jax/mining/rpc"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/mining"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
@@ -67,12 +66,17 @@ type CoinBaseData struct {
 	Height      uint32
 }
 
+type RpcClient interface {
+	SubmitBeacon(block *jaxutil.Block)
+	SubmitShard(block *jaxutil.Block, shardID common.ShardID)
+}
+
 type Job struct {
 	utils.StoppableMixin
 	sync.Mutex
 
 	config    *Configuration
-	rpcClient *rpc.Client
+	rpcClient RpcClient
 
 	BeaconBlock       *wire.MsgBlock
 	BeaconBlockHeight int64
@@ -98,7 +102,7 @@ type Job struct {
 	lastCoinbaseData *CoinBaseData
 }
 
-func NewJob(config *Configuration, rpcClient *rpc.Client) *Job {
+func NewJob(config *Configuration, rpcClient RpcClient) *Job {
 	return &Job{
 		config:     config,
 		rpcClient:  rpcClient,
