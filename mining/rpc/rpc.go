@@ -25,7 +25,7 @@ type RPCClient struct {
 	ShardCallback  func(*jaxjson.GetShardBlockTemplateResult, common.ShardID)
 }
 
-func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RPCClient, error) {
+func NewRPCClient(serverAddress string) (*RPCClient, error) {
 	rpc, err := rpcclient.New(jaxRPCConfig(serverAddress), nil)
 	if err != nil {
 		return nil, err
