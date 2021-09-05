@@ -4,20 +4,28 @@ import (
 	"context"
 	"github.com/inc4/jax/mining/job"
 	"gitlab.com/jaxnet/core/miner/core/common"
+	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
+	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
 	"net/url"
 	"time"
 )
 
-const getTemplateInverval = time.Second
+const (
+	getTemplateInverval = time.Second
+)
+
+var (
+	jaxNetParams = &chaincfg.TestNet3Params
+)
 
 // TODO make Job main struct, rpc have to be part of it
 type RPCClient struct {
 	serverAddress    string
-	JaxRewardAddress string
-	BTCRewardAddress string
+	JaxRewardAddress *jaxutil.Address
+	BTCRewardAddress *jaxutil.Address // TODO
 	rpc              *rpcclient.Client
 	Job              *job.Job
 	shards           map[uint32]context.CancelFunc
@@ -38,10 +46,20 @@ func NewRPCClient(serverAddress, JaxRewardAddress, BTCRewardAddress string) (*RP
 		BtcMiningAddress: nil,
 		JaxMiningAddress: nil,
 	}
+	jaxRewardAddress, err := jaxutil.DecodeAddress(
+		JaxRewardAddress, jaxNetParams)
+	if err != nil {
+		return nil, err
+	}
+	btcRewardAddress, err := jaxutil.DecodeAddress(
+		BTCRewardAddress, jaxNetParams)
+	if err != nil {
+		return nil, err
+	}
 	return &RPCClient{
 		serverAddress:    serverAddress,
-		JaxRewardAddress: JaxRewardAddress,
-		BTCRewardAddress: BTCRewardAddress,
+		JaxRewardAddress: &jaxRewardAddress,
+		BTCRewardAddress: &btcRewardAddress,
 		rpc:              rpc,
 		Job:              job.NewJob(jobConfig),
 		shards:           make(map[uint32]context.CancelFunc),
