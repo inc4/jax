@@ -7,7 +7,7 @@ import (
 )
 
 type Miner struct {
-	job       *job.Job
+	Job       *job.Job
 	rpcClient *rpcclient.Client
 }
 
@@ -22,7 +22,7 @@ func NewMiner(serverAddress, BtcAddress, JaxAddress string) (*Miner, error) {
 	}
 
 	return &Miner{
-		job:       j,
+		Job:       j,
 		rpcClient: rpc,
 	}, nil
 }

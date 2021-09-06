@@ -70,7 +70,7 @@ func (p *Poller) fetchBeaconTemplate() {
 			params.LongPollID = template.LongPollID
 			p.log.Println("beacon", template.Height)
 
-			err := p.job.ProcessBeaconTemplate(template)
+			err := p.Job.ProcessBeaconTemplate(template)
 			if err != nil {
 				p.log.Println("ERR", err)
 			}
@@ -97,7 +97,7 @@ func (p *Poller) fetchShardTemplate(ctx context.Context, id uint32) {
 				params.LongPollID = template.LongPollID
 				p.log.Println("shard", id, template.Height)
 
-				err := p.job.ProcessShardTemplate(template, common.ShardID(id))
+				err := p.Job.ProcessShardTemplate(template, common.ShardID(id))
 				if err != nil {
 					p.log.Println("ERR", err)
 				}

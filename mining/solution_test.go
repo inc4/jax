@@ -30,11 +30,11 @@ func TestTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = miner.job.ProcessBeaconTemplate(test.GetBeacon())
+	err = miner.Job.ProcessBeaconTemplate(test.GetBeacon())
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = miner.job.ProcessShardTemplate(test.GetShard(), 1)
+	err = miner.Job.ProcessShardTemplate(test.GetShard(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}

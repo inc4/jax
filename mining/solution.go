@@ -48,16 +48,16 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	hash := btcHeader.BlockHash()
 	bitHashRepresentation := pow.HashToBig((*chainhash.Hash)(&hash))
 
-	beaconBlock := m.job.BeaconBlock.Copy()
+	beaconBlock := m.Job.BeaconBlock.Copy()
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
-	if bitHashRepresentation.Cmp(m.job.BeaconTarget) <= 0 {
+	if bitHashRepresentation.Cmp(m.Job.BeaconTarget) <= 0 {
 		if err := m.submitBeacon(beaconBlock); err != nil {
 			submitErrors = append(submitErrors, fmt.Errorf("can't submit beacon block: %w", err))
 		}
 	}
 
-	for _, t := range m.job.ShardsTargets {
+	for _, t := range m.Job.ShardsTargets {
 		if bitHashRepresentation.Cmp(t.Target) <= 0 {
 			shardBlock := t.BlockCandidate.Copy()
 			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader())
