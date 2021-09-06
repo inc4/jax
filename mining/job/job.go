@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/mining"
+	"gitlab.com/jaxnet/jaxnetd/txscript"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"math/big"
@@ -32,8 +33,9 @@ var (
 
 type Configuration struct {
 	BtcMiningAddress jaxutil.Address
-	JaxMiningAddress jaxutil.Address
 	ShardsCount      uint32
+
+	pkScript []byte
 }
 
 type ShardTask struct {
@@ -93,7 +95,12 @@ func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
 	if err != nil {
 		return
 	}
-	job.config.JaxMiningAddress, err = jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
+
+	jaxMiningAddress, err := jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
+	if err != nil {
+		return
+	}
+	job.config.pkScript, err = txscript.PayToAddrScript(jaxMiningAddress)
 	if err != nil {
 		return
 	}

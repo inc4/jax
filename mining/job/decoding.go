@@ -46,7 +46,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (blo
 	block = &beaconBlock
 
 	// Transactions processing.
-	block.Transactions, err = unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
+	block.Transactions, err = h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
 	if err != nil {
 		return
 	}
@@ -111,7 +111,7 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	block = &shardBlock
 
 	// Transactions processing.
-	block.Transactions, err = unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
+	block.Transactions, err = h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	return
 }
 
-func unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
+func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
 
 	unmarshalTx := func(txHash string) (tx *wire.MsgTx, err error) {
 		txBinary, err := hex.DecodeString(txHash)
@@ -167,6 +167,10 @@ func unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []j
 	if err != nil {
 		return
 	}
+
+	// set miningAddress into coinbase tx
+	cTX.TxOut[1].PkScript = h.config.pkScript
+	cTX.TxOut[2].PkScript = h.config.pkScript
 
 	transactions = make([]*wire.MsgTx, 0)
 	transactions = append(transactions, cTX)
