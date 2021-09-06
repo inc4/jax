@@ -29,10 +29,7 @@ var (
 	// it is important to keep deserialized blocks free from volatile data
 	// (like constantly changing timestamp).
 	// Otherwise, deduplication fails even if original blocks are totally the same.
-	fixtureDateTime, _ = time.Parse(time.RFC3339, "2012-11-01T22:08:41+00:00")
-
-	fixtureMerkleRoot  = chainhash.Hash{}
-	fixtureMMProofHash = chainhash.Hash{}
+	fixtureMMProofHash = chainhash.Hash{} // todo ?
 	fixtureNonce       = uint32(0)
 
 	lastBCHeader      *wire.BeaconHeader
@@ -77,7 +74,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (blo
 
 	block.Header = wire.NewBeaconBlockHeader(
 		wire.BVersion(c.Version), *previousBlockHash,
-		*merkles[len(merkles)-1], fixtureMMProofHash, fixtureDateTime, bits, fixtureNonce)
+		*merkles[len(merkles)-1], fixtureMMProofHash, time.Now(), bits, fixtureNonce)
 
 	block.Header.BeaconHeader().SetShards(c.Shards)
 	block.Header.BeaconHeader().SetK(c.K)
@@ -139,8 +136,12 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	lastBCHeaderMutex.Lock()
 	defer lastBCHeaderMutex.Unlock()
 
+	// Recalculate the merkle root with the updated extra nonce.
+	uBlock := jaxutil.NewBlock(block)
+	merkles := chaindata.BuildMerkleTreeStore(uBlock.Transactions(), false)
+
 	block.Header = wire.NewShardBlockHeader(
-		*previousBlockHash, fixtureMerkleRoot, fixtureDateTime, bits,
+		*previousBlockHash, *merkles[len(merkles)-1], time.Now(), bits,
 		*lastBCHeader, *lastBCCoinbaseAux.Copy())
 
 	return
