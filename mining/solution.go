@@ -11,27 +11,27 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
-func (m *Miner) Solution(btcHeader, coinbaseTx []byte) error {
+func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (err error) {
 	header := &btcwire.BlockHeader{}
-	if err := header.Deserialize(bytes.NewReader(btcHeader)); err != nil {
-		return err
+	if err = header.Deserialize(bytes.NewReader(btcHeader)); err != nil {
+		return
 	}
 
 	tx := &wire.MsgTx{}
-	if err := tx.Deserialize(bytes.NewReader(coinbaseTx)); err != nil {
-		return err
+	if err = tx.Deserialize(bytes.NewReader(coinbaseTx)); err != nil {
+		return
 	}
 
 	errs := m.CheckSolution(header, tx)
 	if len(errs) != 0 {
-		err := fmt.Errorf("failed to submit blocks: ")
+		err = fmt.Errorf("failed to submit blocks: ")
 		for _, e := range errs {
 			err = fmt.Errorf(" %w \n %v", err, e)
 		}
-		return err
 	}
 
-	return nil
+	fmt.Printf("JAX SOLUTION: %v \n", err)
+	return
 }
 
 func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (submitErrors []error) {
