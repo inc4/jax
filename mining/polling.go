@@ -19,6 +19,14 @@ type Poller struct {
 	log    *log.Logger
 }
 
+func NewPoller(miner Miner) *Poller {
+	return &Poller{
+		Miner:  miner,
+		shards: make(map[uint32]context.CancelFunc),
+		log:    log.Default(),
+	}
+}
+
 func (p *Poller) Do() {
 	go p.fetchBeaconTemplate()
 	for {
