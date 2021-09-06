@@ -12,13 +12,17 @@ import (
 )
 
 func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (err error) {
+	fmt.Println("SOLUTION")
+
 	header := &btcwire.BlockHeader{}
 	if err = header.Deserialize(bytes.NewReader(btcHeader)); err != nil {
+		fmt.Println(err)
 		return
 	}
 
 	tx := &wire.MsgTx{}
 	if err = tx.Deserialize(bytes.NewReader(coinbaseTx)); err != nil {
+		fmt.Println(err)
 		return
 	}
 
