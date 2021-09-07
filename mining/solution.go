@@ -11,34 +11,40 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
-func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (err error) {
-	fmt.Println("SOLUTION")
+type MinerResult struct {
+	ShardId     common.ShardID
+	Amount      int64
+	BlockHeight int64
+	BlockHash   chainhash.Hash
+	Err         error
+}
 
+func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, err error) {
 	header := &btcwire.BlockHeader{}
 	if err = header.Deserialize(bytes.NewReader(btcHeader)); err != nil {
-		fmt.Println(err)
 		return
 	}
 
 	tx := &wire.MsgTx{}
 	if err = tx.Deserialize(bytes.NewReader(coinbaseTx)); err != nil {
-		fmt.Println(err)
 		return
 	}
 
-	errs := m.CheckSolution(header, tx)
-	if len(errs) != 0 {
-		err = fmt.Errorf("failed to submit blocks: ")
-		for _, e := range errs {
-			err = fmt.Errorf(" %w \n %v", err, e)
+	results = m.CheckSolution(header, tx)
+	for _, r := range results {
+		if r.Err == nil {
+			continue
 		}
+		if err == nil {
+			err = fmt.Errorf("failed to submit blocks: ")
+		}
+		err = fmt.Errorf(" %w \n %v", err, r.Err)
 	}
 
-	fmt.Printf("JAX SOLUTION: %v \n", err)
 	return
 }
 
-func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (submitErrors []error) {
+func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (results []*MinerResult) {
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
 		PrevBlock:   chainhash.Hash(btcHeader.PrevBlock),
@@ -56,9 +62,8 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
 	if bitHashRepresentation.Cmp(m.Job.BeaconTarget) <= 0 {
-		if err := m.submitBeacon(beaconBlock); err != nil {
-			submitErrors = append(submitErrors, fmt.Errorf("can't submit beacon block: %w", err))
-		}
+		result := m.newMinerResult(beaconBlock, 0, m.Job.BeaconBlockHeight)
+		results = append(results, result)
 	}
 
 	for _, t := range m.Job.ShardsTargets {
@@ -66,24 +71,33 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 			shardBlock := t.BlockCandidate.Copy()
 			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader())
 
-			if err := m.submitShard(shardBlock, t.ID); err != nil {
-				submitErrors = append(submitErrors, fmt.Errorf("can't submit shard(%v) block: %w", t.ID, err))
-			}
+			result := m.newMinerResult(shardBlock, t.ID, t.BlockHeight)
+			results = append(results, result)
 
 		} else {
 			break // Other targets are higher than current one.
 		}
 	}
 
-	return submitErrors
+	return
 }
 
-func (m *Miner) submitBeacon(block *wire.MsgBlock) error {
-	wireBlock := jaxutil.NewBlock(block)
-	return m.rpcClient.ForBeacon().SubmitBlock(wireBlock, nil)
-}
-
-func (m *Miner) submitShard(block *wire.MsgBlock, shardID common.ShardID) error {
+func (m *Miner) submitBlock(block *wire.MsgBlock, shardID common.ShardID) error {
 	wireBlock := jaxutil.NewBlock(block)
 	return m.rpcClient.ForShard(uint32(shardID)).SubmitBlock(wireBlock, nil)
+}
+
+func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID common.ShardID, height int64) *MinerResult {
+	err := m.submitBlock(block, shardID)
+	if err != nil {
+		err = fmt.Errorf("can't submit block (shardId=%v): %w", shardID, err)
+	}
+
+	return &MinerResult{
+		ShardId:     shardID,
+		Amount:      block.Transactions[0].TxOut[1].Value + block.Transactions[0].TxOut[2].Value,
+		BlockHeight: height,
+		BlockHash:   block.BlockHash(),
+		Err:         err,
+	}
 }
