@@ -38,11 +38,11 @@ type Configuration struct {
 	pkScript []byte
 }
 
-type ShardTask struct {
-	ID             common.ShardID
-	BlockCandidate *wire.MsgBlock
-	BlockHeight    int64
-	Target         *big.Int
+type Task struct {
+	ShardID common.ShardID
+	Block   *wire.MsgBlock
+	Height  int64
+	Target  *big.Int
 }
 
 type CoinBaseTx struct {
@@ -54,29 +54,14 @@ type CoinBaseData struct {
 }
 
 type Job struct {
-	sync.Mutex
+	sync.RWMutex
 
 	config *Configuration
 
-	BeaconBlock       *wire.MsgBlock
-	BeaconBlockHeight int64
+	Beacon *Task
 
-	// Represents target of the beacon chain.
-	// (this is the main target of the mining process).
-	BeaconTarget *big.Int
-
-	// Represents targets of the shards.
-	// The slice is supposed to be sorted in descendant order.
-	// Sorting is needed for the mining process efficiency:
-	// during mining, on each hash mined, it is applied to the shards targets,
-	// from smallest one to the biggest one.
-	// The generated hash would not be applied to the next shard target
-	// in case if current one does not suite the generated hash.
-
-	shards        map[common.ShardID]*ShardTask
-	ShardsTargets []*ShardTask // it's `shards` sorted by Target. sort on update
-
-	BeaconHash chainhash.Hash
+	shards        map[common.ShardID]*Task
+	ShardsTargets []*Task // it's `shards` sorted by Target. sort on update
 
 	CoinBaseCh       chan *CoinBaseTx
 	lastCoinbaseData *CoinBaseData
@@ -87,7 +72,7 @@ func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
 		config: &Configuration{
 			ShardsCount: 3,
 		},
-		shards:     make(map[common.ShardID]*ShardTask),
+		shards:     make(map[common.ShardID]*Task),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
 
@@ -122,31 +107,24 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 
 	shardRecord, isPresent := h.shards[shardID]
 	if !isPresent {
-		shardRecord = &ShardTask{}
+		shardRecord = &Task{}
 		h.shards[shardID] = shardRecord
 	}
 
-	shardRecord.ID = shardID
-	shardRecord.BlockCandidate = block
-	shardRecord.BlockCandidate.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
+	shardRecord.ShardID = shardID
+	shardRecord.Block = block
+	shardRecord.Block.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
 	shardRecord.Target = target
-	shardRecord.BlockHeight = height
+	shardRecord.Height = height
 
 	// clear, populate and sort array by Target
-	h.ShardsTargets = []*ShardTask{}
+	h.ShardsTargets = []*Task{}
 	for _, shardTask := range h.shards {
 		h.ShardsTargets = append(h.ShardsTargets, shardTask)
 	}
 	sort.Slice(h.ShardsTargets, func(i, j int) bool { return h.ShardsTargets[i].Target.Cmp(h.ShardsTargets[j].Target) == -1 })
 
-	if err = h.updateMergedMiningProof(); err != nil {
-		return fmt.Errorf("can't update merged mining proof: %w", err)
-	}
-
-	if err = h.updateCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %w", err)
-	}
-	return nil
+	return h.update()
 }
 
 func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) error {
@@ -158,10 +136,11 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 		return fmt.Errorf("can't decode beacon block template response: %w", err)
 	}
 
-	h.BeaconBlock = block
-	h.BeaconTarget = target
-	h.BeaconBlockHeight = height
-
+	h.Beacon = &Task{
+		Block:  block,
+		Height: height,
+		Target: target,
+	}
 	lastBCHeader = block.Header.BeaconHeader().Copy().BeaconHeader()
 	lastBCCoinbaseAux = wire.CoinbaseAux{
 		Tx:       *block.Transactions[0].Copy(),
@@ -171,17 +150,13 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 		lastBCCoinbaseAux.TxMerkle[i] = tx.TxHash()
 	}
 
-	if err = h.updateMergedMiningProof(); err != nil {
-		return fmt.Errorf("can't update merged mining proof: %w", err)
-	}
-
-	if err = h.updateCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %w", err)
-	}
-	return nil
+	return h.update()
 }
 
 func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, false)
 	if err != nil {
 		return nil, err
@@ -189,7 +164,8 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	coinbaseTx := utils.JaxTxToBtcTx(jaxCoinbaseTx.MsgTx())
 	h.lastCoinbaseData = d
 
-	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(int64(d.Height), utils.PackUint64LE(0x00), h.BeaconHash[:])
+	beaconHash := h.Beacon.Block.Header.BeaconHeader().BeaconExclusiveHash()
+	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(int64(d.Height), utils.PackUint64LE(0x00), beaconHash[:])
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +175,17 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	return &CoinBaseTx{part1, part2}, nil
 }
 
+func (h *Job) update() error {
+	if err := h.updateMergedMiningProof(); err != nil {
+		return fmt.Errorf("can't update merged mining proof: %w", err)
+	}
+
+	if err := h.updateCoinbase(); err != nil {
+		return fmt.Errorf("can't update coinbase: %w", err)
+	}
+	return nil
+}
+
 func (h *Job) updateMergedMiningProof() (err error) {
 	tree := mm.NewSparseMerkleTree(h.config.ShardsCount)
 	for id, shard := range h.shards {
@@ -206,7 +193,7 @@ func (h *Job) updateMergedMiningProof() (err error) {
 		// but the tree expects slots to be indexed from 0.
 		slotIndex := uint32(id - 1)
 
-		shardBlockHash := shard.BlockCandidate.Header.(*wire.ShardHeader).ShardBlockHash()
+		shardBlockHash := shard.Block.Header.(*wire.ShardHeader).ShardBlockHash()
 		err = tree.SetShardHash(slotIndex, shardBlockHash)
 		if err != nil {
 			return
@@ -230,10 +217,9 @@ func (h *Job) updateMergedMiningProof() (err error) {
 
 	hashes := tree.MarshalOrangeTreeLeafs()
 
-	h.BeaconBlock.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
-	h.BeaconBlock.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
+	h.Beacon.Block.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
+	h.Beacon.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
 
-	h.BeaconHash = h.BeaconBlock.Header.BeaconHeader().BeaconExclusiveHash()
 	return
 }
 

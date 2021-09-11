@@ -48,6 +48,9 @@ func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, 
 }
 
 func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (results []*MinerResult) {
+	m.Job.RLock()
+	defer m.Job.RUnlock()
+
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
 		PrevBlock:   chainhash.Hash(btcHeader.PrevBlock),
@@ -61,20 +64,20 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	hash := btcHeader.BlockHash()
 	bitHashRepresentation := pow.HashToBig((*chainhash.Hash)(&hash))
 
-	beaconBlock := m.Job.BeaconBlock.Copy()
+	beaconBlock := m.Job.Beacon.Block.Copy()
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
-	if bitHashRepresentation.Cmp(m.Job.BeaconTarget) <= 0 {
-		result := m.newMinerResult(beaconBlock, 0, m.Job.BeaconBlockHeight)
+	if bitHashRepresentation.Cmp(m.Job.Beacon.Target) <= 0 {
+		result := m.newMinerResult(beaconBlock, 0, m.Job.Beacon.Height)
 		results = append(results, result)
 	}
 
 	for _, t := range m.Job.ShardsTargets {
 		if bitHashRepresentation.Cmp(t.Target) <= 0 {
-			shardBlock := t.BlockCandidate.Copy()
+			shardBlock := t.Block.Copy()
 			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader())
 
-			result := m.newMinerResult(shardBlock, t.ID, t.BlockHeight)
+			result := m.newMinerResult(shardBlock, t.ShardID, t.Height)
 			results = append(results, result)
 
 		} else {
