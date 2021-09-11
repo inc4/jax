@@ -63,8 +63,10 @@ type Job struct {
 	shards        map[common.ShardID]*Task
 	ShardsTargets []*Task // it's `shards` sorted by Target. sort on update
 
-	CoinBaseCh       chan *CoinBaseTx
-	lastCoinbaseData *CoinBaseData
+	CoinBaseCh chan *CoinBaseTx
+
+	lastCoinbaseData  *CoinBaseData
+	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
 func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
@@ -93,64 +95,45 @@ func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
 	return
 }
 
-func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) error {
+func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) (err error) {
 	h.Lock()
 	defer h.Unlock()
 
-	block, target, height, err := h.decodeShardBlockTemplateResponse(template)
+	h.shards[shardID], err = h.decodeShardBlockTemplateResponse(template, shardID)
 	if err != nil {
 		return fmt.Errorf("can't decode shard block template response: %w", err)
 	}
 
-	// todo: add the sme deduplication mechanics as was added for beacon block.
-	//		 (see processBeaconTemplate() method for the details)
-
-	shardRecord, isPresent := h.shards[shardID]
-	if !isPresent {
-		shardRecord = &Task{}
-		h.shards[shardID] = shardRecord
-	}
-
-	shardRecord.ShardID = shardID
-	shardRecord.Block = block
-	shardRecord.Block.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
-	shardRecord.Target = target
-	shardRecord.Height = height
-
 	// clear, populate and sort array by Target
-	h.ShardsTargets = []*Task{}
+	h.ShardsTargets = h.ShardsTargets[:0]
 	for _, shardTask := range h.shards {
 		h.ShardsTargets = append(h.ShardsTargets, shardTask)
 	}
 	sort.Slice(h.ShardsTargets, func(i, j int) bool { return h.ShardsTargets[i].Target.Cmp(h.ShardsTargets[j].Target) == -1 })
 
-	return h.update()
+	if err := h.updateMergedMiningProof(); err != nil {
+		return fmt.Errorf("can't update merged mining proof: %w", err)
+	}
+	return nil
 }
 
-func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) error {
+func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) (err error) {
 	h.Lock()
 	defer h.Unlock()
 
-	block, target, height, err := h.decodeBeaconResponse(template)
+	h.Beacon, err = h.decodeBeaconResponse(template)
 	if err != nil {
 		return fmt.Errorf("can't decode beacon block template response: %w", err)
 	}
 
-	h.Beacon = &Task{
-		Block:  block,
-		Height: height,
-		Target: target,
+	h.updateBeaconCoinbaseAux()
+	if err := h.updateBitconCoinbase(); err != nil {
+		return fmt.Errorf("can't update coinbase: %w", err)
 	}
-	lastBCHeader = block.Header.BeaconHeader().Copy().BeaconHeader()
-	lastBCCoinbaseAux = wire.CoinbaseAux{
-		Tx:       *block.Transactions[0].Copy(),
-		TxMerkle: make([]chainhash.Hash, len(block.Transactions)),
+	if err := h.updateMergedMiningProof(); err != nil {
+		return fmt.Errorf("can't update merged mining proof: %w", err)
 	}
-	for i, tx := range block.Transactions {
-		lastBCCoinbaseAux.TxMerkle[i] = tx.TxHash()
-	}
-
-	return h.update()
+	return nil
 }
 
 func (h *Job) GetMinTarget() *big.Int {
@@ -187,24 +170,12 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	return &CoinBaseTx{part1, part2}, nil
 }
 
-func (h *Job) update() error {
-	if err := h.updateMergedMiningProof(); err != nil {
-		return fmt.Errorf("can't update merged mining proof: %w", err)
-	}
-
-	if err := h.updateCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %w", err)
-	}
-	return nil
-}
-
 func (h *Job) updateMergedMiningProof() (err error) {
 	tree := mm.NewSparseMerkleTree(h.config.ShardsCount)
 	for id, shard := range h.shards {
-		// Shard IDs are going to be indexed from 1,
-		// but the tree expects slots to be indexed from 0.
-		slotIndex := uint32(id - 1)
+		shard.Block.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
 
+		slotIndex := uint32(id - 1) // tree expects slots to be indexed from 0
 		shardBlockHash := shard.Block.Header.(*wire.ShardHeader).ShardBlockHash()
 		err = tree.SetShardHash(slotIndex, shardBlockHash)
 		if err != nil {
@@ -235,7 +206,18 @@ func (h *Job) updateMergedMiningProof() (err error) {
 	return
 }
 
-func (h *Job) updateCoinbase() error {
+func (h *Job) updateBeaconCoinbaseAux() {
+	txs := h.Beacon.Block.Transactions
+	h.lastBCCoinbaseAux = &wire.CoinbaseAux{
+		Tx:       *txs[0].Copy(),
+		TxMerkle: make([]chainhash.Hash, len(txs)),
+	}
+	for i, tx := range txs {
+		h.lastBCCoinbaseAux.TxMerkle[i] = tx.TxHash()
+	}
+}
+
+func (h *Job) updateBitconCoinbase() error {
 	if h.lastCoinbaseData == nil {
 		// todo do smth?
 		return nil

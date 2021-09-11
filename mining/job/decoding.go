@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"gitlab.com/jaxnet/core/miner/core/common"
 	"math/big"
 	"strconv"
-	"sync"
 	"time"
 
 	"gitlab.com/jaxnet/core/miner/core/e"
@@ -23,132 +23,95 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
-var (
-	// Fixture date is used as a placeholder for block generation timestamp set in block's header.
-	// Because of the deduplication mechanics that is applied to the blocks,
-	// it is important to keep deserialized blocks free from volatile data
-	// (like constantly changing timestamp).
-	// Otherwise, deduplication fails even if original blocks are totally the same.
-	fixtureMMProofHash = chainhash.Hash{} // todo ?
-	fixtureNonce       = uint32(0)
-
-	lastBCHeader      *wire.BeaconHeader
-	lastBCCoinbaseAux wire.CoinbaseAux
-	lastBCHeaderMutex sync.Mutex
-)
-
-func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
-
-	// Block initialisation.
-	height = c.Height
-
-	beaconBlock := wire.EmptyBeaconBlock()
-	block = &beaconBlock
-
-	// Transactions processing.
-	block.Transactions, err = h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
+func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (task *Task, err error) {
+	transactions, prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, c.CoinbaseTxn, c.Transactions)
+	if err != nil {
+		return
+	}
+	aux, err := parseBtcAux(c.BTCAux)
 	if err != nil {
 		return
 	}
 
-	// Block header processing.
-	previousBlockHash, err := chainhash.NewHashFromStr(c.PreviousHash)
-	if err != nil {
-		return
-	}
+	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), *prevHash, *merkleHash,
+		chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, 0)
 
-	bits, err := unmarshalBits(c.Bits)
-	if err != nil {
-		return
-	}
+	header.SetShards(c.Shards)
+	header.SetK(c.K)
+	header.SetVoteK(c.VoteK)
+	header.SetBTCAux(aux)
 
-	targetBinary, err := hex.DecodeString(c.Target)
-	target = (&big.Int{}).SetBytes(targetBinary)
-	if err != nil {
-		return
-	}
+	return &Task{
+		ShardID: 0,
+		Block: &wire.MsgBlock{
+			Header:       header,
+			Transactions: transactions,
+		},
+		Height: c.Height,
+		Target: target,
+	}, nil
 
-	// Recalculate the merkle root with the updated extra nonce.
-	uBlock := jaxutil.NewBlock(block)
-	merkles := chaindata.BuildMerkleTreeStore(uBlock.Transactions(), false)
-
-	block.Header = wire.NewBeaconBlockHeader(
-		wire.BVersion(c.Version), *previousBlockHash,
-		*merkles[len(merkles)-1], fixtureMMProofHash, time.Now(), bits, fixtureNonce)
-
-	block.Header.BeaconHeader().SetShards(c.Shards)
-	block.Header.BeaconHeader().SetK(c.K)
-	block.Header.BeaconHeader().SetVoteK(c.VoteK)
-
-	var rawAux []byte
-	rawAux, err = hex.DecodeString(c.BTCAux)
-	if err != nil {
-		return
-	}
-
-	aux := wire.BTCBlockAux{}
-	err = aux.Deserialize(bytes.NewBuffer(rawAux))
-	if err != nil {
-		return
-	}
-
-	block.Header.BeaconHeader().SetBTCAux(aux)
-	return
 }
 
-func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult) (block *wire.MsgBlock, target *big.Int, height int64, err error) {
-
-	if lastBCHeader == nil {
-		// No beacon block candidate has been fetched yet -> no beacon header is available.
-		// No way to generate SC block header, cause there is a dependency on a BC header.
-		err = fmt.Errorf("can't initialise SC header: %w", e.ErrNoBCHeader)
-		return
+func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) (task *Task, err error) {
+	if h.Beacon == nil {
+		return nil, fmt.Errorf("can't initialise SC header: %w", e.ErrNoBCHeader)
 	}
 
-	// Block initialisation.
-	height = c.Height
-	shardBlock := wire.EmptyShardBlock()
-	block = &shardBlock
+	transactions, prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, c.CoinbaseTxn, c.Transactions)
+	if err != nil {
+		return nil, err
+	}
 
-	// Transactions processing.
-	block.Transactions, err = h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions)
+	header := wire.NewShardBlockHeader(*prevHash, *merkleHash, time.Unix(c.CurTime, 0), bits,
+		*h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
+
+	return &Task{
+		ShardID: shardID,
+		Block: &wire.MsgBlock{
+			ShardBlock:   true,
+			Header:       header,
+			Transactions: transactions,
+		},
+		Height: c.Height,
+		Target: target,
+	}, nil
+}
+
+func (h *Job) decodeTemplateValues(
+	prevHashS, bitsS, targetS string, coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (
+	transactions []*wire.MsgTx, prevHash, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
+
+	transactions, err = h.unmarshalTransactions(coinbaseTx, txs)
 	if err != nil {
 		return
 	}
 
-	// Block header processing.
-	previousBlockHash, err := chainhash.NewHashFromStr(c.PreviousHash)
+	prevHash, err = chainhash.NewHashFromStr(prevHashS)
 	if err != nil {
 		return
 	}
 
-	bits, err := unmarshalBits(c.Bits)
+	fakeBlock := jaxutil.NewBlock(&wire.MsgBlock{Transactions: transactions})
+	merkles := chaindata.BuildMerkleTreeStore(fakeBlock.Transactions(), false)
+	merkleHash = merkles[len(merkles)-1]
+
+	bits64, err := strconv.ParseUint(bitsS, 16, 64)
 	if err != nil {
 		return
 	}
+	bits = uint32(bits64)
 
-	targetBinary, err := hex.DecodeString(c.Target)
-	target = (&big.Int{}).SetBytes(targetBinary)
+	targetBytes, err := hex.DecodeString(targetS)
 	if err != nil {
 		return
 	}
-
-	lastBCHeaderMutex.Lock()
-	defer lastBCHeaderMutex.Unlock()
-
-	// Recalculate the merkle root with the updated extra nonce.
-	uBlock := jaxutil.NewBlock(block)
-	merkles := chaindata.BuildMerkleTreeStore(uBlock.Transactions(), false)
-
-	block.Header = wire.NewShardBlockHeader(
-		*previousBlockHash, *merkles[len(merkles)-1], time.Now(), bits,
-		*lastBCHeader, *lastBCCoinbaseAux.Copy())
+	target = (&big.Int{}).SetBytes(targetBytes)
 
 	return
 }
 
 func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
-
 	unmarshalTx := func(txHash string) (tx *wire.MsgTx, err error) {
 		txBinary, err := hex.DecodeString(txHash)
 		if err != nil {
@@ -156,8 +119,7 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx
 		}
 
 		tx = &wire.MsgTx{}
-		txReader := bytes.NewReader(txBinary)
-		err = tx.Deserialize(txReader)
+		err = tx.Deserialize(bytes.NewReader(txBinary))
 		return
 	}
 
@@ -188,7 +150,12 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx
 	return
 }
 
-func unmarshalBits(hexBits string) (uint32, error) {
-	val, err := strconv.ParseUint(hexBits, 16, 64)
-	return uint32(val), err
+func parseBtcAux(auxS string) (aux wire.BTCBlockAux, err error) {
+	rawAux, err := hex.DecodeString(auxS)
+	if err != nil {
+		return
+	}
+	aux = wire.BTCBlockAux{}
+	err = aux.Deserialize(bytes.NewReader(rawAux))
+	return
 }
