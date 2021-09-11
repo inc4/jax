@@ -6,10 +6,11 @@ import (
 	btcwire "github.com/btcsuite/btcd/wire"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
+	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/pow"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
-	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
+	"time"
 )
 
 type MinerResult struct {
@@ -17,6 +18,7 @@ type MinerResult struct {
 	Amount      int64
 	BlockHeight int64
 	BlockHash   chainhash.Hash
+	BlockTime   time.Time
 	Err         error
 }
 
@@ -104,6 +106,7 @@ func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID common.ShardID, hei
 		Amount:      block.Transactions[0].TxOut[1].Value + block.Transactions[0].TxOut[2].Value,
 		BlockHeight: height,
 		BlockHash:   block.BlockHash(),
+		BlockTime:   block.Header.Timestamp(),
 		Err:         err,
 	}
 }
