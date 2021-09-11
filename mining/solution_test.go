@@ -56,6 +56,8 @@ func TestTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	assert.Equal(t, "96624343542776224466899884153850672663883206715290011223164084822212608", miner.Job.GetMinTarget().String())
+
 	assert.Equal(t, 2, len(results))
 
 	assert.Equal(t, common.ShardID(0), results[0].ShardId)

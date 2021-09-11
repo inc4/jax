@@ -153,6 +153,18 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	return h.update()
 }
 
+func (h *Job) GetMinTarget() *big.Int {
+	h.RLock()
+	defer h.RUnlock()
+
+	if len(h.ShardsTargets) > 0 {
+		if shard := h.ShardsTargets[0].Target; shard.Cmp(h.Beacon.Target) == -1 {
+			return shard
+		}
+	}
+	return h.Beacon.Target
+}
+
 func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	h.Lock()
 	defer h.Unlock()
