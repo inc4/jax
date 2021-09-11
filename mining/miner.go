@@ -9,10 +9,12 @@ import (
 type Miner struct {
 	Job       *job.Job
 	rpcClient *rpcclient.Client
+	rpcConf   *rpcclient.ConnConfig
 }
 
 func NewMiner(serverAddress, BtcAddress, JaxAddress string) (*Miner, error) {
-	rpc, err := rpcclient.New(jaxRPCConfig(serverAddress), nil)
+	rpcConf := jaxRPCConfig(serverAddress)
+	rpc, err := rpcclient.New(rpcConf, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -24,6 +26,7 @@ func NewMiner(serverAddress, BtcAddress, JaxAddress string) (*Miner, error) {
 	return &Miner{
 		Job:       j,
 		rpcClient: rpc,
+		rpcConf:   rpcConf,
 	}, nil
 }
 

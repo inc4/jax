@@ -9,6 +9,7 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/pow"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
+	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 )
 
 type MinerResult struct {
@@ -84,7 +85,12 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 func (m *Miner) submitBlock(block *wire.MsgBlock, shardID common.ShardID) error {
 	wireBlock := jaxutil.NewBlock(block)
-	return m.rpcClient.ForShard(uint32(shardID)).SubmitBlock(wireBlock, nil)
+	// TODO we need new client due to bug in jaxnetd/network/rpcclient
+	rpcClient, err := rpcclient.New(m.rpcConf, nil)
+	if err != nil {
+		return err
+	}
+	return rpcClient.ForShard(uint32(shardID)).SubmitBlock(wireBlock, nil)
 }
 
 func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID common.ShardID, height int64) *MinerResult {
