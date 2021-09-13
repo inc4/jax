@@ -152,6 +152,10 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	h.Lock()
 	defer h.Unlock()
 
+	if h.Beacon == nil {
+		return nil, fmt.Errorf("job.Beacon is nil")
+	}
+
 	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, false)
 	if err != nil {
 		return nil, err
