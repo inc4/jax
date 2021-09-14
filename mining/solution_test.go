@@ -31,7 +31,7 @@ func TestTask(t *testing.T) {
 	defer ts.Close()
 
 	url := "http://a:a@" + strings.TrimPrefix(ts.URL, "http://")
-	miner, err := NewMiner(url, "mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3", "mxQsksaTJb11i7vSxAUL6VBjoQnhP3bfFz")
+	miner, err := NewMiner(url, "mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3", "mxQsksaTJb11i7vSxAUL6VBjoQnhP3bfFz", false)
 	if err != nil {
 		t.Fatal(err)
 	}

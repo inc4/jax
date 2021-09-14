@@ -12,13 +12,13 @@ type Miner struct {
 	rpcConf   *rpcclient.ConnConfig
 }
 
-func NewMiner(serverAddress, BtcAddress, JaxAddress string) (*Miner, error) {
+func NewMiner(serverAddress, BtcAddress, JaxAddress string, burnBtc bool) (*Miner, error) {
 	rpcConf := jaxRPCConfig(serverAddress)
 	rpc, err := rpcclient.New(rpcConf, nil)
 	if err != nil {
 		return nil, err
 	}
-	j, err := job.NewJob(BtcAddress, JaxAddress)
+	j, err := job.NewJob(BtcAddress, JaxAddress, burnBtc)
 	if err != nil {
 		return nil, err
 	}

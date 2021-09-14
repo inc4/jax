@@ -34,6 +34,7 @@ var (
 type Configuration struct {
 	BtcMiningAddress jaxutil.Address
 	ShardsCount      uint32
+	BurnBtc          bool
 
 	pkScript []byte
 }
@@ -69,10 +70,11 @@ type Job struct {
 	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
-func NewJob(BtcAddress, JaxAddress string) (job *Job, err error) {
+func NewJob(BtcAddress, JaxAddress string, burnBtc bool) (job *Job, err error) {
 	job = &Job{
 		config: &Configuration{
 			ShardsCount: 3,
+			BurnBtc:     burnBtc,
 		},
 		shards:     make(map[common.ShardID]*Task),
 		CoinBaseCh: make(chan *CoinBaseTx),
@@ -156,7 +158,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 		return nil, fmt.Errorf("job.Beacon is nil")
 	}
 
-	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, false)
+	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtc)
 	if err != nil {
 		return nil, err
 	}

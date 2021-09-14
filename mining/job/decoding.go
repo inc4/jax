@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"gitlab.com/jaxnet/core/miner/core/common"
+	"gitlab.com/jaxnet/jaxnetd/txscript"
+	"gitlab.com/jaxnet/jaxnetd/types"
 	"math/big"
 	"strconv"
 	"time"
@@ -23,11 +25,22 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
+var (
+	burnScript, _ = txscript.NullDataScript([]byte(types.JaxBurnAddr))
+)
+
 func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (task *Task, err error) {
-	transactions, prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, c.CoinbaseTxn, c.Transactions)
+	// burn beacon only if burnBtc is true
+	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, h.config.BurnBtc)
 	if err != nil {
-		return
+		return nil, err
 	}
+
+	prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, transactions)
+	if err != nil {
+		return nil, err
+	}
+
 	aux, err := parseBtcAux(c.BTCAux)
 	if err != nil {
 		return
@@ -58,7 +71,13 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 		return nil, fmt.Errorf("can't initialise SC header: %w", e.ErrNoBCHeader)
 	}
 
-	transactions, prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, c.CoinbaseTxn, c.Transactions)
+	// burn shard only if burnBtc is false
+	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, !h.config.BurnBtc)
+	if err != nil {
+		return nil, err
+	}
+
+	prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, transactions)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +98,7 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 }
 
 func (h *Job) decodeTemplateValues(
-	prevHashS, bitsS, targetS string, coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (
-	transactions []*wire.MsgTx, prevHash, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
-
-	transactions, err = h.unmarshalTransactions(coinbaseTx, txs)
-	if err != nil {
-		return
-	}
+	prevHashS, bitsS, targetS string, transactions []*wire.MsgTx) (prevHash, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
 
 	prevHash, err = chainhash.NewHashFromStr(prevHashS)
 	if err != nil {
@@ -111,7 +124,7 @@ func (h *Job) decodeTemplateValues(
 	return
 }
 
-func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
+func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx, burn bool) (transactions []*wire.MsgTx, err error) {
 	unmarshalTx := func(txHash string) (tx *wire.MsgTx, err error) {
 		txBinary, err := hex.DecodeString(txHash)
 		if err != nil {
@@ -131,8 +144,9 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx
 	}
 
 	// set miningAddress into coinbase tx
-	cTX.TxOut[1].PkScript = h.config.pkScript
-	cTX.TxOut[2].PkScript = h.config.pkScript
+	script := h.script(burn)
+	cTX.TxOut[1].PkScript = script
+	cTX.TxOut[2].PkScript = script
 
 	transactions = make([]*wire.MsgTx, 0)
 	transactions = append(transactions, cTX)
@@ -158,4 +172,11 @@ func parseBtcAux(auxS string) (aux wire.BTCBlockAux, err error) {
 	aux = wire.BTCBlockAux{}
 	err = aux.Deserialize(bytes.NewReader(rawAux))
 	return
+}
+
+func (h *Job) script(burn bool) []byte {
+	if burn {
+		return burnScript
+	}
+	return h.config.pkScript
 }
