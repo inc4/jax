@@ -121,7 +121,6 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 
 func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResult) (err error) {
 	h.Lock()
-	defer h.Unlock()
 
 	h.Beacon, err = h.decodeBeaconResponse(template)
 	if err != nil {
@@ -129,11 +128,14 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 	}
 
 	h.updateBeaconCoinbaseAux()
-	if err := h.updateBitconCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %w", err)
-	}
 	if err := h.updateMergedMiningProof(); err != nil {
 		return fmt.Errorf("can't update merged mining proof: %w", err)
+	}
+
+	h.Unlock()
+
+	if err := h.updateBitcoinCoinbase(); err != nil {
+		return fmt.Errorf("can't update coinbase: %w", err)
 	}
 	return nil
 }
@@ -223,7 +225,7 @@ func (h *Job) updateBeaconCoinbaseAux() {
 	}
 }
 
-func (h *Job) updateBitconCoinbase() error {
+func (h *Job) updateBitcoinCoinbase() error {
 	if h.lastCoinbaseData == nil {
 		// todo do smth?
 		return nil
