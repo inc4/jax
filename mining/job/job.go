@@ -36,7 +36,7 @@ type Configuration struct {
 	ShardsCount      uint32
 	BurnBtc          bool
 
-	pkScript []byte
+	feeScript []byte
 }
 
 type Task struct {
@@ -89,7 +89,7 @@ func NewJob(BtcAddress, JaxAddress string, burnBtc bool) (job *Job, err error) {
 	if err != nil {
 		return
 	}
-	job.config.pkScript, err = txscript.PayToAddrScript(jaxMiningAddress)
+	job.config.feeScript, err = txscript.PayToAddrScript(jaxMiningAddress)
 	if err != nil {
 		return
 	}

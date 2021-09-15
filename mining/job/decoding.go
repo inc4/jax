@@ -144,9 +144,8 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx
 	}
 
 	// set miningAddress into coinbase tx
-	script := h.script(burn)
-	cTX.TxOut[1].PkScript = script
-	cTX.TxOut[2].PkScript = script
+	cTX.TxOut[1].PkScript = h.script(burn)
+	cTX.TxOut[2].PkScript = h.config.feeScript
 
 	transactions = make([]*wire.MsgTx, 0)
 	transactions = append(transactions, cTX)
@@ -178,5 +177,5 @@ func (h *Job) script(burn bool) []byte {
 	if burn {
 		return burnScript
 	}
-	return h.config.pkScript
+	return h.config.feeScript
 }
