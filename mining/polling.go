@@ -65,7 +65,12 @@ func (p *Poller) fetchBeaconTemplate() {
 		},
 	}
 	for {
-		template, err := p.rpcClient.GetBeaconBlockTemplate(params)
+		rpcClient, err := rpcclient.New(p.rpcConf, nil)
+		if err != nil {
+			p.log.Println("ERR:", err)
+			continue
+		}
+		template, err := rpcClient.GetBeaconBlockTemplate(params)
 		if err == nil {
 			params.LongPollID = template.LongPollID
 			p.log.Println("beacon", template.Height)
@@ -89,7 +94,12 @@ func (p *Poller) fetchShardTemplate(ctx context.Context, id uint32) {
 		},
 	}
 	for {
-		ch := GetShardBlockTemplateAsync(p.rpcClient.ForShard(id), params)
+		rpcClient, err := rpcclient.New(p.rpcConf, nil)
+		if err != nil {
+			p.log.Println("ERR:", err)
+			continue
+		}
+		ch := GetShardBlockTemplateAsync(rpcClient.ForShard(id), params)
 		select {
 		case r := <-ch:
 			if r.err == nil {
