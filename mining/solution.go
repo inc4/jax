@@ -49,7 +49,6 @@ func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, 
 
 func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (results []*MinerResult) {
 	m.Job.RLock()
-	defer m.Job.RUnlock()
 
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
@@ -63,8 +62,10 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 	hash := btcHeader.BlockHash()
 	bitHashRepresentation := pow.HashToBig((*chainhash.Hash)(&hash))
-
 	beaconBlock := m.Job.Beacon.Block.Copy()
+
+	m.Job.RUnlock()
+
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
 	if bitHashRepresentation.Cmp(m.Job.Beacon.Target) <= 0 {
