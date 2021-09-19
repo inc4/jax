@@ -149,6 +149,9 @@ func (h *Job) GetMinTarget() *big.Int {
 			return shard
 		}
 	}
+	if h.Beacon == nil {
+		return big.NewInt(0)
+	}
 	return h.Beacon.Target
 }
 
