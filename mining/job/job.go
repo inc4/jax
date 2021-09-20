@@ -150,7 +150,7 @@ func (h *Job) GetMinTarget() *big.Int {
 		}
 	}
 	if h.Beacon == nil {
-		return big.NewInt(0)
+		return nil
 	}
 	return h.Beacon.Target
 }
