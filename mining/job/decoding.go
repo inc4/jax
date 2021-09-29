@@ -36,7 +36,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 		return nil, err
 	}
 
-	prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, transactions)
+	actualMMRRoot, merkleHash, bits, target, err := h.decodeTemplateValues(c.BlocksMMRRoot, c.Bits, c.Target, transactions)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 		return
 	}
 
-	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), *prevHash, *merkleHash,
+	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), *actualMMRRoot, *merkleHash,
 		chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, 0)
 
 	header.SetShards(c.Shards)
@@ -77,13 +77,12 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 		return nil, err
 	}
 
-	prevHash, merkleHash, bits, target, err := h.decodeTemplateValues(c.PreviousHash, c.Bits, c.Target, transactions)
+	actualMMRRoot, merkleHash, bits, target, err := h.decodeTemplateValues(c.BlocksMMRRoot, c.Bits, c.Target, transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	header := wire.NewShardBlockHeader(*prevHash, *merkleHash, time.Unix(c.CurTime, 0), bits,
-		*h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
+	header := wire.NewShardBlockHeader(*actualMMRRoot, *merkleHash, bits, *h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
 
 	return &Task{
 		ShardID: shardID,
@@ -98,9 +97,9 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 }
 
 func (h *Job) decodeTemplateValues(
-	prevHashS, bitsS, targetS string, transactions []*wire.MsgTx) (prevHash, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
+	BlocksMMRRootS, bitsS, targetS string, transactions []*wire.MsgTx) (actualMMRRoot, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
 
-	prevHash, err = chainhash.NewHashFromStr(prevHashS)
+	actualMMRRoot, err = chainhash.NewHashFromStr(BlocksMMRRootS)
 	if err != nil {
 		return
 	}

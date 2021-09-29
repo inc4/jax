@@ -163,7 +163,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 		return nil, fmt.Errorf("job.Beacon is nil")
 	}
 
-	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtc)
+	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtc, false)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (h *Job) updateMergedMiningProof() (err error) {
 		shard.Block.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
 
 		slotIndex := uint32(id - 1) // tree expects slots to be indexed from 0
-		shardBlockHash := shard.Block.Header.(*wire.ShardHeader).ShardBlockHash()
+		shardBlockHash := shard.Block.Header.(*wire.ShardHeader).BlockHash()
 		err = tree.SetShardHash(slotIndex, shardBlockHash)
 		if err != nil {
 			return
