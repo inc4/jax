@@ -9,7 +9,7 @@ package job
 import (
 	"fmt"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
-	"gitlab.com/jaxnet/jaxnetd/node/mining"
+	"gitlab.com/jaxnet/jaxnetd/node/chaindata"
 	"gitlab.com/jaxnet/jaxnetd/txscript"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
@@ -19,9 +19,9 @@ import (
 
 	btcdwire "github.com/btcsuite/btcd/wire"
 
-	mm "gitlab.com/jaxnet/core/merged-mining-tree"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/core/miner/core/utils"
+	mm "gitlab.com/jaxnet/jaxnetd/types/merge_mining_tree"
 
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
@@ -35,6 +35,7 @@ type Configuration struct {
 	BtcMiningAddress jaxutil.Address
 	ShardsCount      uint32
 	BurnBtc          bool
+	HashSorting      bool
 
 	feeScript []byte
 }
@@ -57,7 +58,7 @@ type CoinBaseData struct {
 type Job struct {
 	sync.RWMutex
 
-	config *Configuration
+	Config *Configuration
 
 	Beacon *Task
 
@@ -70,17 +71,18 @@ type Job struct {
 	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
-func NewJob(BtcAddress, JaxAddress string, burnBtc bool) (job *Job, err error) {
+func NewJob(BtcAddress, JaxAddress string, burnBtc bool, hashSorting bool) (job *Job, err error) {
 	job = &Job{
-		config: &Configuration{
+		Config: &Configuration{
 			ShardsCount: 3,
 			BurnBtc:     burnBtc,
+			HashSorting: hashSorting,
 		},
 		shards:     make(map[common.ShardID]*Task),
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
 
-	job.config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
+	job.Config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
 	if err != nil {
 		return
 	}
@@ -89,7 +91,7 @@ func NewJob(BtcAddress, JaxAddress string, burnBtc bool) (job *Job, err error) {
 	if err != nil {
 		return
 	}
-	job.config.feeScript, err = txscript.PayToAddrScript(jaxMiningAddress)
+	job.Config.feeScript, err = txscript.PayToAddrScript(jaxMiningAddress)
 	if err != nil {
 		return
 	}
@@ -163,7 +165,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 		return nil, fmt.Errorf("job.Beacon is nil")
 	}
 
-	jaxCoinbaseTx, err := mining.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.config.BtcMiningAddress, h.config.BurnBtc, false)
+	jaxCoinbaseTx, err := chaindata.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.Config.BtcMiningAddress, h.Config.BurnBtc, false)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +173,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 	h.lastCoinbaseData = d
 
 	beaconHash := h.Beacon.Block.Header.BeaconHeader().BeaconExclusiveHash()
-	coinbaseTx.TxIn[0].SignatureScript, err = utils.BTCCoinbaseScript(int64(d.Height), utils.PackUint64LE(0x00), beaconHash[:])
+	coinbaseTx.TxIn[0].SignatureScript, err = chaindata.BTCCoinbaseScript(int64(d.Height), utils.PackUint64LE(0x00), beaconHash[:])
 	if err != nil {
 		return nil, err
 	}
@@ -182,12 +184,12 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 }
 
 func (h *Job) updateMergedMiningProof() (err error) {
-	tree := mm.NewSparseMerkleTree(h.config.ShardsCount)
-	for id, shard := range h.shards {
-		shard.Block.Header.(*wire.ShardHeader).SetMergeMiningNumber(uint32(len(h.shards)))
+	tree := mm.NewSparseMerkleTree(h.Config.ShardsCount)
 
+	for id, shard := range h.shards {
 		slotIndex := uint32(id - 1) // tree expects slots to be indexed from 0
-		shardBlockHash := shard.Block.Header.(*wire.ShardHeader).BlockHash()
+
+		shardBlockHash := shard.Block.Header.BlockHash()
 		err = tree.SetShardHash(slotIndex, shardBlockHash)
 		if err != nil {
 			return
@@ -198,21 +200,33 @@ func (h *Job) updateMergedMiningProof() (err error) {
 	if err != nil {
 		return
 	}
-
 	rootHash, err := chainhash.NewHash(root[:])
 	if err != nil {
 		return
 	}
-
 	coding, codingBitLength, err := tree.CatalanNumbersCoding()
 	if err != nil {
 		return
 	}
-
 	hashes := tree.MarshalOrangeTreeLeafs()
 
 	h.Beacon.Block.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
+	h.Beacon.Block.Header.BeaconHeader().SetMergeMiningNumber(h.Config.ShardsCount)
 	h.Beacon.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
+
+	for id, shard := range h.shards {
+		slotIndex := uint32(id - 1) // tree expects slots to be indexed from 0
+
+		path, err := tree.MerkleProofPath(slotIndex)
+		if err != nil {
+			return err
+		}
+
+		shard.Block.Header.SetShardMerkleProof(path)
+		shard.Block.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
+		shard.Block.Header.BeaconHeader().SetMergeMiningNumber(h.Config.ShardsCount)
+		shard.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
+	}
 
 	return
 }
@@ -220,11 +234,11 @@ func (h *Job) updateMergedMiningProof() (err error) {
 func (h *Job) updateBeaconCoinbaseAux() {
 	txs := h.Beacon.Block.Transactions
 	h.lastBCCoinbaseAux = &wire.CoinbaseAux{
-		Tx:       *txs[0].Copy(),
-		TxMerkle: make([]chainhash.Hash, len(txs)),
+		Tx:            *txs[0].Copy(),
+		TxMerkleProof: make([]chainhash.Hash, len(txs)),
 	}
 	for i, tx := range txs {
-		h.lastBCCoinbaseAux.TxMerkle[i] = tx.TxHash()
+		h.lastBCCoinbaseAux.TxMerkleProof[i] = tx.TxHash()
 	}
 }
 

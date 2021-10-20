@@ -63,21 +63,26 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 		CoinbaseAux: wire.CoinbaseAux{Tx: *coinbaseTx},
 	}
 
-	hash := btcHeader.BlockHash()
-	bitHashRepresentation := pow.HashToBig((*chainhash.Hash)(&hash))
 	beaconBlock := m.Job.Beacon.Block.Copy()
+	hash := beaconBlock.Header.BeaconHeader().PoWHash()
 
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
-	if pow.ValidateHashSortingRule(bitHashRepresentation, chainIDCount, 0) {
+	if pow.HashToBig(&hash).Cmp(m.Job.Beacon.Target) <= 0 &&
+		!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, 0) {
+
 		result := m.newMinerResult(beaconBlock, 0, m.Job.Beacon.Height)
 		results = append(results, result)
 	}
 
 	for _, t := range m.Job.ShardsTargets {
-		if pow.ValidateHashSortingRule(bitHashRepresentation, chainIDCount, uint32(t.ShardID)) {
+		if pow.HashToBig(&hash).Cmp(t.Target) <= 0 &&
+			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, uint32(t.ShardID)) {
+
 			shardBlock := t.Block.Copy()
-			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader())
+			coinbaseAux := wire.CoinbaseAux{}.FromBlock(beaconBlock)
+
+			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader(), coinbaseAux)
 
 			result := m.newMinerResult(shardBlock, t.ShardID, t.Height)
 			results = append(results, result)

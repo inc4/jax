@@ -7,7 +7,7 @@ import (
 )
 
 func TestCoinbase(t *testing.T) {
-	job, _ := NewJob("mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3", "mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3")
+	job, _ := NewJob("mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3", "mzDGR33maDBujpqjkvxVzY2ssYDcQG51p3", true, true)
 
 	coinbase, err := job.GetBitcoinCoinbase(&CoinBaseData{Reward: 625540727, Fee: 666, Height: 703687})
 	if err != nil {

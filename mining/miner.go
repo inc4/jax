@@ -18,7 +18,7 @@ func NewMiner(serverAddress, BtcAddress, JaxAddress string, burnBtc bool) (*Mine
 	if err != nil {
 		return nil, err
 	}
-	j, err := job.NewJob(BtcAddress, JaxAddress, burnBtc)
+	j, err := job.NewJob(BtcAddress, JaxAddress, burnBtc, true)
 	if err != nil {
 		return nil, err
 	}

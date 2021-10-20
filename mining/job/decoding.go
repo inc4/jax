@@ -31,7 +31,7 @@ var (
 
 func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (task *Task, err error) {
 	// burn beacon only if burnBtc is true
-	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, h.config.BurnBtc)
+	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, h.Config.BurnBtc)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	}
 
 	// burn shard only if burnBtc is false
-	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, !h.config.BurnBtc)
+	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, !h.Config.BurnBtc)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx
 
 	// set miningAddress into coinbase tx
 	cTX.TxOut[1].PkScript = h.script(burn)
-	cTX.TxOut[2].PkScript = h.config.feeScript
+	cTX.TxOut[2].PkScript = h.Config.feeScript
 
 	transactions = make([]*wire.MsgTx, 0)
 	transactions = append(transactions, cTX)
@@ -176,5 +176,5 @@ func (h *Job) script(burn bool) []byte {
 	if burn {
 		return burnScript
 	}
-	return h.config.feeScript
+	return h.Config.feeScript
 }

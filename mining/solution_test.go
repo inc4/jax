@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
-	"gitlab.com/jaxnet/jaxnetd/node/chain"
-	"gitlab.com/jaxnet/jaxnetd/node/chain/shard"
+	//"gitlab.com/jaxnet/jaxnetd/node/chain"
+	//"gitlab.com/jaxnet/jaxnetd/node/chain/shard"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 )
+
+// todo update
 
 func Test(t *testing.T) {
 	url := "http://a:a@kek.lol"
