@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	btcwire "github.com/btcsuite/btcd/wire"
-	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
@@ -14,7 +13,7 @@ import (
 )
 
 type MinerResult struct {
-	ShardId     common.ShardID
+	ShardId     uint32
 	Amount      int64
 	BlockHeight int64
 	BlockHash   chainhash.Hash
@@ -95,7 +94,7 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	return
 }
 
-func (m *Miner) submitBlock(block *wire.MsgBlock, shardID common.ShardID) error {
+func (m *Miner) submitBlock(block *wire.MsgBlock, shardID uint32) error {
 	wireBlock := jaxutil.NewBlock(block)
 	// TODO we need new client due to bug in jaxnetd/network/rpcclient
 	rpcClient, err := rpcclient.New(m.rpcConf, nil)
@@ -105,7 +104,7 @@ func (m *Miner) submitBlock(block *wire.MsgBlock, shardID common.ShardID) error 
 	return rpcClient.ForShard(uint32(shardID)).SubmitBlock(wireBlock, nil)
 }
 
-func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID common.ShardID, height int64) *MinerResult {
+func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID uint32, height int64) *MinerResult {
 	err := m.submitBlock(block, shardID)
 	if err != nil {
 		err = fmt.Errorf("can't submit block (shardId=%v): %w", shardID, err)

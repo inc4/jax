@@ -10,14 +10,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/txscript"
 	"gitlab.com/jaxnet/jaxnetd/types"
 	"math/big"
 	"strconv"
 	"time"
 
-	"gitlab.com/jaxnet/core/miner/core/e"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/chaindata"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
@@ -66,9 +64,9 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 
 }
 
-func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult, shardID common.ShardID) (task *Task, err error) {
+func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateResult, shardID uint32) (task *Task, err error) {
 	if h.Beacon == nil {
-		return nil, fmt.Errorf("can't initialise SC header: %w", e.ErrNoBCHeader)
+		return nil, fmt.Errorf("can't initialise SC header")
 	}
 
 	// burn shard only if burnBtc is false
