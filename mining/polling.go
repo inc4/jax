@@ -2,7 +2,6 @@ package mining
 
 import (
 	"context"
-	"gitlab.com/jaxnet/core/miner/core/common"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"log"
@@ -107,7 +106,7 @@ func (p *Poller) fetchShardTemplate(ctx context.Context, id uint32) {
 				params.LongPollID = template.LongPollID
 				p.log.Println("shard", id, template.Height)
 
-				err := p.Job.ProcessShardTemplate(template, common.ShardID(id))
+				err := p.Job.ProcessShardTemplate(template, id)
 				if err != nil {
 					p.log.Println("ERR", err)
 				}
