@@ -76,10 +76,10 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 	for _, t := range m.Job.ShardsTargets {
 		if pow.HashToBig(&hash).Cmp(t.Target) <= 0 &&
-			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, uint32(t.ShardID)) {
+			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, t.ShardID) {
 
 			shardBlock := t.Block.Copy()
-			coinbaseAux := wire.CoinbaseAux{}.FromBlock(beaconBlock)
+			coinbaseAux := wire.CoinbaseAux{}.FromBlock(beaconBlock, true)
 
 			shardBlock.Header.SetBeaconHeader(beaconBlock.Header.BeaconHeader(), coinbaseAux)
 

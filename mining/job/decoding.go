@@ -34,7 +34,8 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 		return nil, err
 	}
 
-	actualMMRRoot, merkleHash, bits, target, err := h.decodeTemplateValues(c.BlocksMMRRoot, c.Bits, c.Target, transactions)
+	actualMMRRoot, merkleHash, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(
+		c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, transactions, c.ChainWeight)
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +45,8 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 		return
 	}
 
-	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), *actualMMRRoot, *merkleHash,
-		chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, 0)
+	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), int32(c.Height), *actualMMRRoot, *prevBlockHash, *merkleHash,
+		chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, chainWeight, 0)
 
 	header.SetShards(c.Shards)
 	header.SetK(c.K)
@@ -75,17 +76,18 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 		return nil, err
 	}
 
-	actualMMRRoot, merkleHash, bits, target, err := h.decodeTemplateValues(c.BlocksMMRRoot, c.Bits, c.Target, transactions)
+	actualMMRRoot, merkleHash, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(
+		c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, transactions, c.ChainWeight)
 	if err != nil {
 		return nil, err
 	}
 
-	header := wire.NewShardBlockHeader(*actualMMRRoot, *merkleHash, bits, *h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
+	header := wire.NewShardBlockHeader(int32(c.Height), *actualMMRRoot, *prevBlockHash, *merkleHash,
+		bits, chainWeight, *h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
 
 	return &Task{
 		ShardID: shardID,
 		Block: &wire.MsgBlock{
-			ShardBlock:   true,
 			Header:       header,
 			Transactions: transactions,
 		},
@@ -94,10 +96,15 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	}, nil
 }
 
-func (h *Job) decodeTemplateValues(
-	BlocksMMRRootS, bitsS, targetS string, transactions []*wire.MsgTx) (actualMMRRoot, merkleHash *chainhash.Hash, bits uint32, target *big.Int, err error) {
+func (h *Job) decodeTemplateValues(BlocksMMRRootS, prevBlockHashS, bitsS, targetS string, transactions []*wire.MsgTx, chainWeightS string) (
+	actualMMRRoot, merkleHash, prevBlockHash *chainhash.Hash, bits uint32, target, chainWeight *big.Int, err error) {
 
 	actualMMRRoot, err = chainhash.NewHashFromStr(BlocksMMRRootS)
+	if err != nil {
+		return
+	}
+
+	prevBlockHash, err = chainhash.NewHashFromStr(prevBlockHashS)
 	if err != nil {
 		return
 	}
@@ -117,6 +124,12 @@ func (h *Job) decodeTemplateValues(
 		return
 	}
 	target = (&big.Int{}).SetBytes(targetBytes)
+
+	chainWeight, ok := new(big.Int).SetString(chainWeightS, 10)
+	if !ok {
+		err = fmt.Errorf("can't parse chainWeight")
+		return
+	}
 
 	return
 }
