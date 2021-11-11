@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	btcwire "github.com/btcsuite/btcd/wire"
+	"github.com/inc4/jax/mining/job"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
@@ -70,17 +71,13 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
-	if pow.HashToBig(&hash).Cmp(m.Job.Beacon.Target) <= 0 &&
-		!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), hashSortingSlotNumber, 0) {
-
+	if m.checkHash(&hash, m.Job.Beacon) {
 		result := m.newMinerResult(beaconBlock, 0, m.Job.Beacon.Height)
 		results = append(results, result)
 	}
 
 	for _, t := range m.Job.ShardsTargets {
-		if pow.HashToBig(&hash).Cmp(t.Target) <= 0 &&
-			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), hashSortingSlotNumber, t.ShardID) {
-
+		if m.checkHash(&hash, t) {
 			shardBlock := t.Block.Copy()
 			coinbaseAux := wire.CoinbaseAux{}.FromBlock(beaconBlock, true)
 
@@ -88,7 +85,6 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 			result := m.newMinerResult(shardBlock, t.ShardID, t.Height)
 			results = append(results, result)
-
 		} else {
 			break // Other targets are higher than current one.
 		}
@@ -121,4 +117,16 @@ func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID uint32, height int6
 		BlockTime:   block.Header.Timestamp(),
 		Err:         err,
 	}
+}
+
+func (m *Miner) checkHash(hash *chainhash.Hash, t *job.Task) bool {
+	if pow.HashToBig(hash).Cmp(t.Target) > 0 {
+		fmt.Println("hash < target for shardId", t.ShardID)
+		return false
+	}
+	if m.Job.Config.HashSorting && !pow.ValidateHashSortingRule(pow.HashToBig(hash), hashSortingSlotNumber, 0) {
+		fmt.Println("ValidateHashSortingRule failed for shardId", t.ShardID)
+		return false
+	}
+	return true
 }
