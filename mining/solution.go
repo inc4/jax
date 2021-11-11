@@ -124,7 +124,7 @@ func (m *Miner) checkHash(hash *chainhash.Hash, t *job.Task) bool {
 		fmt.Println("hash < target for shardId", t.ShardID)
 		return false
 	}
-	if m.Job.Config.HashSorting && !pow.ValidateHashSortingRule(pow.HashToBig(hash), hashSortingSlotNumber, 0) {
+	if m.Job.Config.HashSorting && !pow.ValidateHashSortingRule(pow.HashToBig(hash), hashSortingSlotNumber, t.ShardID) {
 		fmt.Println("ValidateHashSortingRule failed for shardId", t.ShardID)
 		return false
 	}
