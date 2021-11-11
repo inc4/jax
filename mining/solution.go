@@ -6,10 +6,15 @@ import (
 	btcwire "github.com/btcsuite/btcd/wire"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
+	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
 	"gitlab.com/jaxnet/jaxnetd/types/pow"
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 	"time"
+)
+
+var (
+	hashSortingSlotNumber = chaincfg.MainNetParams.PowParams.HashSortingSlotNumber
 )
 
 type MinerResult struct {
@@ -50,8 +55,6 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	m.Job.RLock()
 	defer m.Job.RUnlock()
 
-	chainIDCount := uint32(len(m.Job.ShardsTargets) + 1)
-
 	btcAux := wire.BTCBlockAux{
 		Version:     btcHeader.Version,
 		PrevBlock:   chainhash.Hash(btcHeader.PrevBlock),
@@ -68,7 +71,7 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
 
 	if pow.HashToBig(&hash).Cmp(m.Job.Beacon.Target) <= 0 &&
-		!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, 0) {
+		!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), hashSortingSlotNumber, 0) {
 
 		result := m.newMinerResult(beaconBlock, 0, m.Job.Beacon.Height)
 		results = append(results, result)
@@ -76,7 +79,7 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 
 	for _, t := range m.Job.ShardsTargets {
 		if pow.HashToBig(&hash).Cmp(t.Target) <= 0 &&
-			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), chainIDCount, t.ShardID) {
+			!m.Job.Config.HashSorting || pow.ValidateHashSortingRule(pow.HashToBig(&hash), hashSortingSlotNumber, t.ShardID) {
 
 			shardBlock := t.Block.Copy()
 			coinbaseAux := wire.CoinbaseAux{}.FromBlock(beaconBlock, true)
@@ -101,7 +104,7 @@ func (m *Miner) submitBlock(block *wire.MsgBlock, shardID uint32) error {
 	if err != nil {
 		return err
 	}
-	return rpcClient.ForShard(uint32(shardID)).SubmitBlock(wireBlock, nil)
+	return rpcClient.ForShard(shardID).SubmitBlock(wireBlock, nil)
 }
 
 func (m *Miner) newMinerResult(block *wire.MsgBlock, shardID uint32, height int64) *MinerResult {
