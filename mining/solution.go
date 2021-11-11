@@ -67,9 +67,9 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 	}
 
 	beaconBlock := m.Job.Beacon.Block.Copy()
-	hash := beaconBlock.Header.BeaconHeader().PoWHash()
-
 	beaconBlock.Header.BeaconHeader().SetBTCAux(btcAux)
+
+	hash := beaconBlock.Header.BeaconHeader().PoWHash()
 
 	if m.checkHash(&hash, m.Job.Beacon) {
 		result := m.newMinerResult(beaconBlock, 0, m.Job.Beacon.Height)
