@@ -3,6 +3,7 @@ package mining
 import (
 	"github.com/inc4/jax/mining/job"
 	"gitlab.com/jaxnet/jaxnetd/network/rpcclient"
+	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"net/url"
 )
 
@@ -18,7 +19,7 @@ func NewMiner(serverAddress, BtcAddress, JaxAddress string, burnBtc bool) (*Mine
 	if err != nil {
 		return nil, err
 	}
-	j, err := job.NewJob(BtcAddress, JaxAddress, burnBtc, true)
+	j, err := job.NewJob(BtcAddress, JaxAddress, &chaincfg.TestNet3Params, burnBtc)
 	if err != nil {
 		return nil, err
 	}

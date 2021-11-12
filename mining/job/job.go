@@ -25,15 +25,11 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
-var (
-	jaxNetParams = &chaincfg.TestNet3Params
-)
-
 type Configuration struct {
 	BtcMiningAddress jaxutil.Address
 	ShardsCount      uint32
 	BurnBtc          bool
-	HashSorting      bool
+	JaxNetParams     *chaincfg.Params
 
 	feeScript []byte
 }
@@ -69,12 +65,12 @@ type Job struct {
 	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
-func NewJob(BtcAddress, JaxAddress string, burnBtc bool, hashSorting bool) (job *Job, err error) {
+func NewJob(BtcAddress, JaxAddress string, jaxNetParams *chaincfg.Params, burnBtc bool) (job *Job, err error) {
 	job = &Job{
 		Config: &Configuration{
-			ShardsCount: 3,
-			BurnBtc:     burnBtc,
-			HashSorting: hashSorting,
+			ShardsCount:  3,
+			BurnBtc:      burnBtc,
+			JaxNetParams: jaxNetParams,
 		},
 		shards:     make(map[uint32]*Task),
 		CoinBaseCh: make(chan *CoinBaseTx),
