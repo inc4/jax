@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"gitlab.com/jaxnet/jaxnetd/jaxutil"
 	"gitlab.com/jaxnet/jaxnetd/node/chaindata"
-	"gitlab.com/jaxnet/jaxnetd/txscript"
 	"gitlab.com/jaxnet/jaxnetd/types/chaincfg"
 	"gitlab.com/jaxnet/jaxnetd/types/jaxjson"
 	"math/big"
@@ -26,12 +25,12 @@ import (
 )
 
 type Configuration struct {
-	BtcMiningAddress jaxutil.Address
-	ShardsCount      uint32
-	BurnBtc          bool
-	JaxNetParams     *chaincfg.Params
+	ShardsCount  uint32
+	BurnBtc      bool
+	JaxNetParams *chaincfg.Params
 
-	feeScript []byte
+	btcMiningAddress jaxutil.Address
+	jaxMiningAddress jaxutil.Address
 }
 
 type Task struct {
@@ -76,16 +75,12 @@ func NewJob(BtcAddress, JaxAddress string, jaxNetParams *chaincfg.Params, burnBt
 		CoinBaseCh: make(chan *CoinBaseTx),
 	}
 
-	job.Config.BtcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
+	job.Config.btcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
 	if err != nil {
 		return
 	}
 
-	jaxMiningAddress, err := jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
-	if err != nil {
-		return
-	}
-	job.Config.feeScript, err = txscript.PayToAddrScript(jaxMiningAddress)
+	job.Config.jaxMiningAddress, err = jaxutil.DecodeAddress(JaxAddress, jaxNetParams)
 	if err != nil {
 		return
 	}
@@ -159,7 +154,8 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 		return nil, fmt.Errorf("job.Beacon is nil")
 	}
 
-	jaxCoinbaseTx, err := chaindata.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.Config.BtcMiningAddress, h.Config.BurnBtc, false)
+	// todo CreateBitcoinCoinbaseTx
+	jaxCoinbaseTx, err := chaindata.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.Config.btcMiningAddress, h.Config.BurnBtc, false)
 	if err != nil {
 		return nil, err
 	}

@@ -10,8 +10,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"gitlab.com/jaxnet/jaxnetd/txscript"
-	"gitlab.com/jaxnet/jaxnetd/types"
 	"math/big"
 	"strconv"
 	"time"
@@ -23,35 +21,33 @@ import (
 	"gitlab.com/jaxnet/jaxnetd/types/wire"
 )
 
-var (
-	burnScript, _ = txscript.NullDataScript([]byte(types.JaxBurnAddr))
-)
-
 func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (task *Task, err error) {
-	// burn beacon only if burnBtc is true
-	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, h.Config.BurnBtc)
+	actualMMRRoot, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, c.ChainWeight)
 	if err != nil {
 		return nil, err
 	}
 
-	actualMMRRoot, merkleHash, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(
-		c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, transactions, c.ChainWeight)
+	coinbaseTx, err := h.getCoinbaseTx(0, int32(c.Height), 0, c.CoinbaseTxn)
+	if err != nil {
+		return nil, err
+	}
+	transactions, err := h.unmarshalTransactions(coinbaseTx, c.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	aux, err := parseBtcAux(c.BTCAux)
+	btcAux, err := parseBtcAux(c.BTCAux)
 	if err != nil {
 		return
 	}
 
-	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), int32(c.Height), *actualMMRRoot, *prevBlockHash, *merkleHash,
-		chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, chainWeight, 0)
+	header := wire.NewBeaconBlockHeader(wire.BVersion(c.Version), int32(c.Height), *actualMMRRoot, *prevBlockHash,
+		*h.merkleHash(transactions), chainhash.Hash{}, time.Unix(c.CurTime, 0), bits, chainWeight, 0)
 
 	header.SetShards(c.Shards)
 	header.SetK(c.K)
 	header.SetVoteK(c.VoteK)
-	header.SetBTCAux(aux)
+	header.SetBTCAux(btcAux)
 
 	return &Task{
 		ShardID: 0,
@@ -70,19 +66,21 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 		return nil, fmt.Errorf("can't initialise SC header")
 	}
 
-	// burn shard only if burnBtc is false
-	transactions, err := h.unmarshalTransactions(c.CoinbaseTxn, c.Transactions, !h.Config.BurnBtc)
+	actualMMRRoot, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, c.ChainWeight)
 	if err != nil {
 		return nil, err
 	}
 
-	actualMMRRoot, merkleHash, prevBlockHash, bits, target, chainWeight, err := h.decodeTemplateValues(
-		c.PrevBlocksMMRRoot, c.PreviousHash, c.Bits, c.Target, transactions, c.ChainWeight)
+	coinbaseTx, err := h.getCoinbaseTx(shardID, int32(c.Height), bits, nil)
+	if err != nil {
+		return nil, err
+	}
+	transactions, err := h.unmarshalTransactions(coinbaseTx, c.Transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	header := wire.NewShardBlockHeader(int32(c.Height), *actualMMRRoot, *prevBlockHash, *merkleHash,
+	header := wire.NewShardBlockHeader(int32(c.Height), *actualMMRRoot, *prevBlockHash, *h.merkleHash(transactions),
 		bits, chainWeight, *h.Beacon.Block.Header.BeaconHeader(), *h.lastBCCoinbaseAux)
 
 	return &Task{
@@ -96,8 +94,8 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	}, nil
 }
 
-func (h *Job) decodeTemplateValues(BlocksMMRRootS, prevBlockHashS, bitsS, targetS string, transactions []*wire.MsgTx, chainWeightS string) (
-	actualMMRRoot, merkleHash, prevBlockHash *chainhash.Hash, bits uint32, target, chainWeight *big.Int, err error) {
+func (h *Job) decodeTemplateValues(BlocksMMRRootS, prevBlockHashS, bitsS, targetS string, chainWeightS string) (
+	actualMMRRoot, prevBlockHash *chainhash.Hash, bits uint32, target, chainWeight *big.Int, err error) {
 
 	actualMMRRoot, err = chainhash.NewHashFromStr(BlocksMMRRootS)
 	if err != nil {
@@ -108,10 +106,6 @@ func (h *Job) decodeTemplateValues(BlocksMMRRootS, prevBlockHashS, bitsS, target
 	if err != nil {
 		return
 	}
-
-	fakeBlock := jaxutil.NewBlock(&wire.MsgBlock{Transactions: transactions})
-	merkles := chaindata.BuildMerkleTreeStore(fakeBlock.Transactions(), false)
-	merkleHash = merkles[len(merkles)-1]
 
 	bits64, err := strconv.ParseUint(bitsS, 16, 64)
 	if err != nil {
@@ -134,43 +128,57 @@ func (h *Job) decodeTemplateValues(BlocksMMRRootS, prevBlockHashS, bitsS, target
 	return
 }
 
-func (h *Job) unmarshalTransactions(coinbaseTx *jaxjson.GetBlockTemplateResultTx, txs []jaxjson.GetBlockTemplateResultTx, burn bool) (transactions []*wire.MsgTx, err error) {
-	unmarshalTx := func(txHash string) (tx *wire.MsgTx, err error) {
-		txBinary, err := hex.DecodeString(txHash)
-		if err != nil {
-			return
-		}
+func (h *Job) merkleHash(transactions []*wire.MsgTx) *chainhash.Hash {
+	fakeBlock := jaxutil.NewBlock(&wire.MsgBlock{Transactions: transactions})
+	merkles := chaindata.BuildMerkleTreeStore(fakeBlock.Transactions(), false)
+	return merkles[len(merkles)-1]
+}
 
-		tx = &wire.MsgTx{}
-		err = tx.Deserialize(bytes.NewReader(txBinary))
-		return
-	}
-
-	// Coinbase transaction must be processed first.
-	// (transactions order in transactions slice is significant)
-	cTX, err := unmarshalTx(coinbaseTx.Data)
+func unmarshalTx(txHash string) (tx *wire.MsgTx, err error) {
+	txBinary, err := hex.DecodeString(txHash)
 	if err != nil {
 		return
 	}
 
-	// set miningAddress into coinbase tx
-	cTX.TxOut[1].PkScript = h.script(burn)
-	cTX.TxOut[2].PkScript = h.Config.feeScript
+	tx = &wire.MsgTx{}
+	err = tx.Deserialize(bytes.NewReader(txBinary))
+	return
+}
 
+func (h *Job) unmarshalTransactions(coinbaseTx *jaxutil.Tx, txs []jaxjson.GetBlockTemplateResultTx) (transactions []*wire.MsgTx, err error) {
 	transactions = make([]*wire.MsgTx, 0)
-	transactions = append(transactions, cTX)
+	transactions = append(transactions, coinbaseTx.MsgTx())
 
-	// Regular transactions processing.
 	for _, marshalledTx := range txs {
 		tx, err := unmarshalTx(marshalledTx.Data)
 		if err != nil {
 			return nil, err
 		}
-
 		transactions = append(transactions, tx)
 	}
 
 	return
+}
+
+func (h *Job) getCoinbaseTx(shardID uint32, height int32, bits uint32, coinbaseTxn *jaxjson.GetBlockTemplateResultTx) (*jaxutil.Tx, error) {
+	var reward int64
+	var burn bool
+
+	if shardID == 0 {
+		cTx, err := unmarshalTx(coinbaseTxn.Data)
+		if err != nil {
+			return nil, err
+		}
+		reward = cTx.TxOut[1].Value + cTx.TxOut[2].Value
+		burn = h.Config.BurnBtc // burn beacon only if burnBtc is true
+
+	} else {
+		reward = chaindata.CalcShardBlockSubsidy(h.Config.ShardsCount, bits, h.Beacon.Block.Header.BeaconHeader().K())
+		burn = !h.Config.BurnBtc // burn shard only if burnBtc is false
+
+	}
+
+	return chaindata.CreateJaxCoinbaseTx(reward, 0, height, shardID, h.Config.jaxMiningAddress, burn, shardID == 0)
 }
 
 func parseBtcAux(auxS string) (aux wire.BTCBlockAux, err error) {
@@ -181,11 +189,4 @@ func parseBtcAux(auxS string) (aux wire.BTCBlockAux, err error) {
 	aux = wire.BTCBlockAux{}
 	err = aux.Deserialize(bytes.NewReader(rawAux))
 	return
-}
-
-func (h *Job) script(burn bool) []byte {
-	if burn {
-		return burnScript
-	}
-	return h.Config.feeScript
 }
