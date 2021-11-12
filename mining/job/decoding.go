@@ -27,10 +27,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 		return nil, err
 	}
 
-	coinbaseTx, err := h.getCoinbaseTx(0, int32(c.Height), 0, c.CoinbaseTxn)
-	if err != nil {
-		return nil, err
-	}
+	coinbaseTx, err := h.getCoinbaseTx(0, *c.CoinbaseValue, int32(c.Height))
 	transactions, err := h.unmarshalTransactions(coinbaseTx, c.Transactions)
 	if err != nil {
 		return nil, err
@@ -71,7 +68,8 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 		return nil, err
 	}
 
-	coinbaseTx, err := h.getCoinbaseTx(shardID, int32(c.Height), bits, nil)
+	reward := chaindata.CalcShardBlockSubsidy(h.Config.ShardsCount, bits, h.Beacon.Block.Header.BeaconHeader().K())
+	coinbaseTx, err := h.getCoinbaseTx(shardID, reward, int32(c.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -160,24 +158,10 @@ func (h *Job) unmarshalTransactions(coinbaseTx *jaxutil.Tx, txs []jaxjson.GetBlo
 	return
 }
 
-func (h *Job) getCoinbaseTx(shardID uint32, height int32, bits uint32, coinbaseTxn *jaxjson.GetBlockTemplateResultTx) (*jaxutil.Tx, error) {
-	var reward int64
-	var burn bool
-
-	if shardID == 0 {
-		cTx, err := unmarshalTx(coinbaseTxn.Data)
-		if err != nil {
-			return nil, err
-		}
-		reward = cTx.TxOut[1].Value + cTx.TxOut[2].Value
-		burn = h.Config.BurnBtc // burn beacon only if burnBtc is true
-
-	} else {
-		reward = chaindata.CalcShardBlockSubsidy(h.Config.ShardsCount, bits, h.Beacon.Block.Header.BeaconHeader().K())
-		burn = !h.Config.BurnBtc // burn shard only if burnBtc is false
-
-	}
-
+func (h *Job) getCoinbaseTx(shardID uint32, reward int64, height int32) (*jaxutil.Tx, error) {
+	// burn beacon only if burnBtc is true
+	// burn shard only if burnBtc is false
+	burn := h.Config.BurnBtc == (shardID == 0)
 	return chaindata.CreateJaxCoinbaseTx(reward, 0, height, shardID, h.Config.jaxMiningAddress, burn, shardID == 0)
 }
 
