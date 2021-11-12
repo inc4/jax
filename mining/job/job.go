@@ -16,8 +16,6 @@ import (
 	"sort"
 	"sync"
 
-	btcdwire "github.com/btcsuite/btcd/wire"
-
 	mm "gitlab.com/jaxnet/jaxnetd/types/merge_mining_tree"
 
 	"gitlab.com/jaxnet/jaxnetd/types/chainhash"
@@ -154,21 +152,14 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 		return nil, fmt.Errorf("job.Beacon is nil")
 	}
 
-	// todo CreateBitcoinCoinbaseTx
-	jaxCoinbaseTx, err := chaindata.CreateJaxCoinbaseTx(d.Reward, d.Fee, int32(d.Height), 0, h.Config.btcMiningAddress, h.Config.BurnBtc, false)
-	if err != nil {
-		return nil, err
-	}
-	coinbaseTx := JaxTxToBtcTx(jaxCoinbaseTx.MsgTx())
-	h.lastCoinbaseData = d
-
 	beaconHash := h.Beacon.Block.Header.BeaconHeader().BeaconExclusiveHash()
-	coinbaseTx.TxIn[0].SignatureScript, err = chaindata.BTCCoinbaseScript(int64(d.Height), PackUint64LE(0x00), beaconHash[:])
+
+	coinbaseTx, err := chaindata.CreateBitcoinCoinbaseTx(d.Reward, d.Fee, int32(d.Height), h.Config.btcMiningAddress, beaconHash[:], h.Config.BurnBtc)
 	if err != nil {
 		return nil, err
 	}
 
-	fakeBlock := btcdwire.MsgBlock{Transactions: []*btcdwire.MsgTx{&coinbaseTx}}
+	fakeBlock := wire.MsgBlock{Transactions: []*wire.MsgTx{coinbaseTx.MsgTx()}}
 	part1, part2 := SplitCoinbase(&fakeBlock)
 	return &CoinBaseTx{part1, part2}, nil
 }
