@@ -70,6 +70,9 @@ func (h *Job) decodeShardBlockTemplateResponse(c *jaxjson.GetShardBlockTemplateR
 	}
 
 	reward := chaindata.CalcShardBlockSubsidy(h.Config.ShardsCount, bits, h.Beacon.Block.Header.BeaconHeader().K())
+	if h.Config.JaxNetParams.Net != wire.MainNet {
+		reward = *c.CoinbaseValue
+	}
 	coinbaseTx, err := h.getCoinbaseTx(shardID, reward, int32(c.Height))
 	if err != nil {
 		return nil, err
@@ -163,9 +166,6 @@ func (h *Job) getCoinbaseTx(shardID uint32, reward int64, height int32) (*jaxuti
 	// burn beacon only if burnBtc is true
 	// burn shard only if burnBtc is false
 	burn := h.Config.BurnBtc == (shardID == 0)
-	if h.Config.JaxNetParams.Net != wire.MainNet {
-		reward = 100000
-	}
 	return chaindata.CreateJaxCoinbaseTx(reward, 0, height, shardID, h.Config.jaxMiningAddress, burn, shardID == 0)
 }
 
