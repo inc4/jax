@@ -45,6 +45,7 @@ func (h *Job) decodeBeaconResponse(c *jaxjson.GetBeaconBlockTemplateResult) (tas
 	header.SetK(c.K)
 	header.SetVoteK(c.VoteK)
 	header.SetBTCAux(btcAux)
+	header.SetMergeMiningNumber(h.Config.ShardsCount)
 
 	return &Task{
 		ShardID: 0,

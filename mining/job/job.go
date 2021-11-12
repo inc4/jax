@@ -190,7 +190,6 @@ func (h *Job) updateMergedMiningProof() (err error) {
 	hashes := tree.MarshalOrangeTreeLeafs()
 
 	h.Beacon.Block.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
-	h.Beacon.Block.Header.BeaconHeader().SetMergeMiningNumber(h.Config.ShardsCount)
 	h.Beacon.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
 
 	for id, shard := range h.shards {
@@ -201,7 +200,6 @@ func (h *Job) updateMergedMiningProof() (err error) {
 
 		shard.Block.Header.SetShardMerkleProof(path)
 		shard.Block.Header.BeaconHeader().SetMergeMiningRoot(*rootHash)
-		shard.Block.Header.BeaconHeader().SetMergeMiningNumber(h.Config.ShardsCount)
 		shard.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
 	}
 
