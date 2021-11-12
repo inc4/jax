@@ -185,10 +185,8 @@ func (h *Job) updateMergedMiningProof() (err error) {
 	tree := mm.NewSparseMerkleTree(h.Config.ShardsCount)
 
 	for id, shard := range h.shards {
-		slotIndex := id - 1 // tree expects slots to be indexed from 0
-
-		shardBlockHash := shard.Block.Header.BlockHash()
-		err = tree.SetShardHash(slotIndex, shardBlockHash)
+		shardBlockHash := shard.Block.Header.ExclusiveHash()
+		err = tree.SetShardHash(id-1, shardBlockHash) // tree expects slots to be indexed from 0
 		if err != nil {
 			return
 		}
@@ -213,9 +211,7 @@ func (h *Job) updateMergedMiningProof() (err error) {
 	h.Beacon.Block.Header.BeaconHeader().SetMergedMiningTreeCodingProof(hashes, coding, codingBitLength)
 
 	for id, shard := range h.shards {
-		slotIndex := id - 1 // tree expects slots to be indexed from 0
-
-		path, err := tree.MerkleProofPath(slotIndex)
+		path, err := tree.MerkleProofPath(id - 1) // tree expects slots to be indexed from 0
 		if err != nil {
 			return err
 		}
