@@ -23,7 +23,7 @@ type MinerResult struct {
 	Err         error
 }
 
-func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, err error) {
+func (m *Miner) Solution(btcHeader, coinbaseTx []byte, txs []string) (results []*MinerResult, err error) {
 	header := &btcwire.BlockHeader{}
 	if err = header.Deserialize(bytes.NewReader(btcHeader)); err != nil {
 		return
@@ -34,7 +34,17 @@ func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, 
 		return
 	}
 
-	results = m.CheckSolution(header, tx)
+	txHashes := make([]chainhash.Hash, len(txs)+1)
+	txHashes[0] = tx.TxHash()
+	for i, hashHex := range txs {
+		hash, err := chainhash.NewHashFromStr(hashHex)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode tx hash %v: %w", hashHex, err)
+		}
+		txHashes[i+1] = *hash
+	}
+
+	results = m.CheckSolution(header, tx, txHashes)
 	for _, r := range results {
 		if r.Err == nil {
 			continue
@@ -48,7 +58,7 @@ func (m *Miner) Solution(btcHeader, coinbaseTx []byte) (results []*MinerResult, 
 	return
 }
 
-func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx) (results []*MinerResult) {
+func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.MsgTx, txHashes []chainhash.Hash) (results []*MinerResult) {
 	m.Job.RLock()
 	defer m.Job.RUnlock()
 
@@ -59,7 +69,7 @@ func (m *Miner) CheckSolution(btcHeader *btcwire.BlockHeader, coinbaseTx *wire.M
 		Timestamp:   btcHeader.Timestamp,
 		Bits:        btcHeader.Bits,
 		Nonce:       btcHeader.Nonce,
-		CoinbaseAux: wire.CoinbaseAux{Tx: *coinbaseTx},
+		CoinbaseAux: wire.CoinbaseAux{Tx: *coinbaseTx, TxMerkleProof: chainhash.BuildCoinbaseMerkleTreeProof(txHashes)},
 	}
 
 	beaconBlock := m.Job.Beacon.Block.Copy()
