@@ -56,9 +56,8 @@ type Job struct {
 	shards        map[uint32]*Task
 	ShardsTargets []*Task // it's `shards` sorted by Target. sort on update
 
-	CoinBaseCh chan *CoinBaseTx
+	UpdateCh chan bool
 
-	lastCoinbaseData  *CoinBaseData
 	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
@@ -69,8 +68,8 @@ func NewJob(BtcAddress, JaxAddress string, jaxNetParams *chaincfg.Params, burnBt
 			BurnBtc:      burnBtc,
 			JaxNetParams: jaxNetParams,
 		},
-		shards:     make(map[uint32]*Task),
-		CoinBaseCh: make(chan *CoinBaseTx),
+		shards:   make(map[uint32]*Task),
+		UpdateCh: make(chan bool),
 	}
 
 	job.Config.btcMiningAddress, err = jaxutil.DecodeAddress(BtcAddress, jaxNetParams)
@@ -105,6 +104,8 @@ func (h *Job) ProcessShardTemplate(template *jaxjson.GetShardBlockTemplateResult
 	if err := h.updateMergedMiningProof(); err != nil {
 		return fmt.Errorf("can't update merged mining proof: %w", err)
 	}
+
+	h.updateBitcoinCoinbase()
 	return nil
 }
 
@@ -123,9 +124,7 @@ func (h *Job) ProcessBeaconTemplate(template *jaxjson.GetBeaconBlockTemplateResu
 
 	h.Unlock()
 
-	if err := h.updateBitcoinCoinbase(); err != nil {
-		return fmt.Errorf("can't update coinbase: %w", err)
-	}
+	h.updateBitcoinCoinbase()
 	return nil
 }
 
@@ -144,7 +143,7 @@ func (h *Job) GetMinTarget() *big.Int {
 	return h.Beacon.Target
 }
 
-func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
+func (h *Job) GetBitcoinCoinbase(reward, fee int64, height uint32) (*CoinBaseTx, error) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -154,7 +153,7 @@ func (h *Job) GetBitcoinCoinbase(d *CoinBaseData) (*CoinBaseTx, error) {
 
 	beaconHash := h.Beacon.Block.Header.BeaconHeader().BeaconExclusiveHash()
 
-	coinbaseTx, err := chaindata.CreateBitcoinCoinbaseTx(d.Reward, d.Fee, int32(d.Height), h.Config.btcMiningAddress, beaconHash[:], h.Config.BurnBtc)
+	coinbaseTx, err := chaindata.CreateBitcoinCoinbaseTx(reward, fee, int32(height), h.Config.btcMiningAddress, beaconHash[:], h.Config.BurnBtc)
 	if err != nil {
 		return nil, err
 	}
@@ -217,18 +216,8 @@ func (h *Job) updateBeaconCoinbaseAux() {
 	}
 }
 
-func (h *Job) updateBitcoinCoinbase() error {
-	if h.lastCoinbaseData == nil {
-		// todo do smth?
-		return nil
-	}
-
-	coinbase, err := h.GetBitcoinCoinbase(h.lastCoinbaseData)
-	if err != nil {
-		return err
-	}
+func (h *Job) updateBitcoinCoinbase() {
 	go func() { // avoid deadlocks
-		h.CoinBaseCh <- coinbase
+		h.UpdateCh <- true
 	}()
-	return nil
 }
