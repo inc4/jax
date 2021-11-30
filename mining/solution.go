@@ -132,7 +132,7 @@ func (m *Miner) checkHash(hash *big.Int, t *job.Task) bool {
 		return false
 	}
 	if m.Job.Config.JaxNetParams.PowParams.HashSorting && !pow.ValidateHashSortingRule(hash, m.Job.Config.JaxNetParams.PowParams.HashSortingSlotNumber, t.ShardID) {
-		fmt.Println("ValidateHashSortingRule failed for shardId", t.ShardID)
+		// fmt.Println("ValidateHashSortingRule failed for shardId", t.ShardID)
 		return false
 	}
 	return true
