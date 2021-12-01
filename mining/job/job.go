@@ -61,6 +61,13 @@ type Job struct {
 	lastBCCoinbaseAux *wire.CoinbaseAux
 }
 
+type JobCompact struct {
+	ShardID   uint32
+	Height    int64
+	PrevBlock chainhash.Hash
+	Target    *big.Int
+}
+
 func NewJob(BtcAddress, JaxAddress string, jaxNetParams *chaincfg.Params, burnBtc bool) (job *Job, err error) {
 	job = &Job{
 		Config: &Configuration{
@@ -141,6 +148,28 @@ func (h *Job) GetMinTarget() *big.Int {
 		return nil
 	}
 	return h.Beacon.Target
+}
+
+func (h *Job) GetJobs() []*JobCompact {
+	h.RLock()
+	defer h.RUnlock()
+
+	jobs := make([]*JobCompact, len(h.shards)+1)
+	jobs[0] = &JobCompact{
+		ShardID:   0,
+		Height:    h.Beacon.Height,
+		PrevBlock: h.Beacon.Block.Header.PrevBlockHash(),
+		Target:    h.Beacon.Target,
+	}
+	for i, shard := range h.shards {
+		jobs[i] = &JobCompact{
+			ShardID:   i,
+			Height:    shard.Height,
+			PrevBlock: shard.Block.Header.PrevBlockHash(),
+			Target:    shard.Target,
+		}
+	}
+	return jobs
 }
 
 func (h *Job) GetBitcoinCoinbase(reward, fee int64, height uint32) (*CoinBaseTx, error) {
