@@ -154,20 +154,20 @@ func (h *Job) GetJobs() []*JobCompact {
 	h.RLock()
 	defer h.RUnlock()
 
-	jobs := make([]*JobCompact, len(h.shards)+1)
+	jobs := make([]*JobCompact, 0, len(h.shards)+1)
 	jobs[0] = &JobCompact{
 		ShardID:   0,
 		Height:    h.Beacon.Height,
 		PrevBlock: h.Beacon.Block.Header.PrevBlockHash(),
 		Target:    h.Beacon.Target,
 	}
-	for i, shard := range h.shards {
-		jobs[i] = &JobCompact{
-			ShardID:   i,
+	for _, shard := range h.shards { // can't put to array by map key (shardID) - it may be greater that len(h.shards)
+		jobs = append(jobs, &JobCompact{
+			ShardID:   shard.ShardID,
 			Height:    shard.Height,
 			PrevBlock: shard.Block.Header.PrevBlockHash(),
 			Target:    shard.Target,
-		}
+		})
 	}
 	return jobs
 }
