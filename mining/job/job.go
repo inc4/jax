@@ -154,7 +154,7 @@ func (h *Job) GetJobs() []*JobCompact {
 	h.RLock()
 	defer h.RUnlock()
 
-	jobs := make([]*JobCompact, 0, len(h.shards)+1)
+	jobs := make([]*JobCompact, 1, len(h.shards)+1)
 	jobs[0] = &JobCompact{
 		ShardID:   0,
 		Height:    h.Beacon.Height,
